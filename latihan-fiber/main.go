@@ -2,42 +2,49 @@ package main
 
 import "fmt"
 
-func swap(a, b *int) {
-	*a, *b = *b, *a
+type Student struct {
+	ID       int
+	Name     string
+	Grade    float64
+	IsActive bool
 }
 
-func updateSlice(s *[]string, newItem string) {
-	*s = append(*s, newItem)
+func (s Student) GetInfo() string {
+	return fmt.Sprintf("ID: %d | Nama: %s | Nilai: %.1f | Aktif: %v",
+		s.ID, s.Name, s.Grade, s.IsActive)
 }
 
-func PassbyValue(x int) {
-	x = x + 100
+func (s *Student) UpdateGrade(grade float64) {
+	s.Grade = grade
 }
 
-func PassbyPointer(x *int) {
-	*x = *x + 100
+func (s *Student) Activate() {
+	s.IsActive = true
+}
+
+func (s *Student) Deactivate() {
+	s.IsActive = false
 }
 
 func main() {
-	fmt.Println("=== swap dengan pointer ===")
-	a, b := 10, 20
-	fmt.Println("Sebelum swap:", a, b)
-	swap(&a, &b)
-	fmt.Println("Sesudah swap:", a, b)
+	student := Student{
+		ID:       1,
+		Name:     "Budiono Siregar",
+		Grade:    0,
+		IsActive: false,
+	}
 
-	fmt.Println("\n=== updateSlice dengan pointer ===")
-	daftarBuah := []string{"apel", "jeruk"}
-	fmt.Println("Sebelum update:", daftarBuah)
-	updateSlice(&daftarBuah, "mangga")
-	fmt.Println("Sesudah update:", daftarBuah)
+	fmt.Println("=== Data awal ===")
+	fmt.Println(student.GetInfo())
 
-	fmt.Println("\n=== Perbandingan pass by value vs pass by pointer ===")
-	angka := 5
-	fmt.Println("Nilai awal:", angka)
+	student.Activate()
+	student.UpdateGrade(88.5)
 
-	PassbyValue(angka)
-	fmt.Println("Setelah PassbyValue:", angka)
+	fmt.Println("\n=== Setelah diaktifkan dan nilai diperbarui ===")
+	fmt.Println(student.GetInfo())
 
-	PassbyPointer(&angka)
-	fmt.Println("Setelah PassbyPointer:", angka)
+	student.Deactivate()
+
+	fmt.Println("\n=== Setelah dinonaktifkan ===")
+	fmt.Println(student.GetInfo())
 }
