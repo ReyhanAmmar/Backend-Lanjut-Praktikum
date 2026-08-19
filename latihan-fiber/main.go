@@ -2,48 +2,42 @@ package main
 
 import "fmt"
 
+func swap(a, b *int) {
+	*a, *b = *b, *a
+}
+
+func updateSlice(s *[]string, newItem string) {
+	*s = append(*s, newItem)
+}
+
+func PassbyValue(x int) {
+	x = x + 100
+}
+
+func PassbyPointer(x *int) {
+	*x = *x + 100
+}
+
 func main() {
-	var nama string = "Reyhan Ammar"
-	var umur int = 21
-	var ipk float64 = 3.7
-	var aktif bool = true
-	hobi := []string{"bermain game", "olahraga", "coding"}
+	fmt.Println("=== swap dengan pointer ===")
+	a, b := 10, 20
+	fmt.Println("Sebelum swap:", a, b)
+	swap(&a, &b)
+	fmt.Println("Sesudah swap:", a, b)
 
-	fmt.Println("=== Variabel ===")
-	fmt.Println("Nama :", nama)
-	fmt.Println("Umur :", umur)
-	fmt.Println("IPK  :", ipk)
-	fmt.Println("Aktif:", aktif)
-	fmt.Println("Hobi :", hobi)
+	fmt.Println("\n=== updateSlice dengan pointer ===")
+	daftarBuah := []string{"apel", "jeruk"}
+	fmt.Println("Sebelum update:", daftarBuah)
+	updateSlice(&daftarBuah, "mangga")
+	fmt.Println("Sesudah update:", daftarBuah)
 
-	nilaiMahasiswa := make(map[string]float64)
+	fmt.Println("\n=== Perbandingan pass by value vs pass by pointer ===")
+	angka := 5
+	fmt.Println("Nilai awal:", angka)
 
-	nilaiMahasiswa["Alfin"] = 85.5
-	nilaiMahasiswa["Ody"] = 90.0
-	nilaiMahasiswa["Ilyas"] = 78.0
+	PassbyValue(angka)
+	fmt.Println("Setelah PassbyValue:", angka)
 
-	fmt.Println("\n=== Map setelah diisi ===")
-	fmt.Println(nilaiMahasiswa)
-
-	fmt.Println("\n=== Cek keberadaan Nilai ===")
-	if nilai, ada := nilaiMahasiswa["Alfin"]; ada {
-		fmt.Println("Nilai Alfin ditemukan:", nilai)
-	} else {
-		fmt.Println("Alfin tidak ada di map")
-	}
-
-	if nilai, ada := nilaiMahasiswa["Ody"]; ada {
-		fmt.Println("Nilai Ody ditemukan:", nilai)
-	} else {
-		fmt.Println("Ody belum punya nilai")
-	}
-
-	delete(nilaiMahasiswa, "Ilyas")
-	fmt.Println("\n=== Map setelah Ilyas dihapus ===")
-	fmt.Println(nilaiMahasiswa)
-	
-	fmt.Println("\n=== Menelusuri semua data ===")
-	for nama, nilai := range nilaiMahasiswa {
-		fmt.Printf("%s: %.1f\n", nama, nilai)
-	}
+	PassbyPointer(&angka)
+	fmt.Println("Setelah PassbyPointer:", angka)
 }
