@@ -125,14 +125,13 @@ func createStudent(c *fiber.Ctx) error {
 	} else if *req.Grade < 0.0 || *req.Grade > 100.0 {
 		errs["grade"] = "nilai (grade) harus berada di antara 0.00 dan 100.00"
 	}
-
-	for _, s := range students {
-        if strings.EqualFold(s.NIM, req.NIM) {
-            errs["nim"] = "NIM sudah digunakan mahasiswa lain"
-        }
-    }
 	if len(errs) > 0 {
 		return failValidation(c, errs)
+	}
+	for _, s := range students {
+		if strings.EqualFold(s.NIM, req.NIM) {
+			return fail(c, fiber.StatusConflict, "NIM sudah terdaftar")
+		}
 	}
 
 	newStudent := Student{

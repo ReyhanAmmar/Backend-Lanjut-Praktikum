@@ -16,7 +16,6 @@ Berikut adalah tabel kontrak endpoint API lengkap dengan metode, endpoint, param
 | **PATCH** | `/api/v1/students/:id` | **Path Param:**<br>• `id` (integer positif, wajib)<br>**Header (Wajib):**<br>• `Content-Type: application/json` | `{"grade": 98.0, "is_active": false}` | • `200 OK`<br>• `400 Bad Request`<br>• `404 Not Found`<br>• `415 Unsupported Media Type`<br>• `422 Unprocessable Entity` | `{"success": true, "message": "data mahasiswa berhasil diperbarui sebagian", "data": {"id": 1, "nim": "434241061", "name": "Muhammad Reyhan Ammar", "grade": 98, "is_active": false, "created_at": "2026-08-27T00:04:32Z"}}` |
 | **DELETE** | `/api/v1/students/:id` | **Path Param:**<br>• `id` (integer positif, wajib) | *Tidak ada* | • `204 No Content`<br>• `400 Bad Request`<br>• `404 Not Found` | *(Body kosong / No Content)* |
 
----
 
 ## Keterangan Status Code HTTP
 

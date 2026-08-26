@@ -1,3 +1,3 @@
 Membantu saya bagian pengujian
 Mencari status dan Header
-Membua
+Membuat dokumentasi API
