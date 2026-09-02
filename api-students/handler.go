@@ -250,4 +250,3 @@ func deleteStudent(c *fiber.Ctx) error {
 
 	return noContent(c)
 }
-	
