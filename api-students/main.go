@@ -7,12 +7,14 @@ import (
 	"strings"
 	"time"
 
-	"api-students/database"
-
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
+
+	"api-students/app/repository"
+	"api-students/config"
+	"api-students/database"
 )
 
 var methodsWithBody = map[string]bool{
@@ -32,15 +34,19 @@ func requireJSON(c *fiber.Ctx) error {
 }
 
 func main() {
-	ctx := context.Background()
-	pool, err := database.NewPool(ctx)
+	config.LoadEnv()
+
+	pool, err := database.NewPool(context.Background())
 	if err != nil {
-		log.Fatalf("gagal inisialisasi database pool: %v", err)
+		log.Fatalf("database: %v", err)
 	}
 	defer pool.Close()
 
+	studentRepository := repository.NewStudentRepository(pool)
+	studentHandler := NewStudentHandler(studentRepository)
+
 	app := fiber.New(fiber.Config{
-		AppName: "Praktikum Backend Lanjut - Tugas 2",
+		AppName: "Praktikum Backend Lanjut - Tugas 3",
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			status := fiber.StatusInternalServerError
 			message := "terjadi kesalahan internal pada server"
@@ -61,7 +67,7 @@ func main() {
 	api := app.Group("/api/v1")
 
 	api.Get("/health", func(c *fiber.Ctx) error {
-		ctx, cancel := context.WithTimeout(c.UserContext(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(c.UserContext(), 2*time.Second)
 		defer cancel()
 
 		if err := pool.Ping(ctx); err != nil {
@@ -72,17 +78,18 @@ func main() {
 	})
 
 	s := api.Group("/students", requireJSON)
-	s.Get("/", listStudents)
-	s.Get("/:id", getStudent)
-	s.Post("/", createStudent)
-	s.Put("/:id", replaceStudent)
-	s.Patch("/:id", patchStudent)
-	s.Delete("/:id", deleteStudent)
+	s.Get("/", studentHandler.List)
+	s.Get("/:id", studentHandler.Get)
+	s.Post("/", studentHandler.Create)
+	s.Put("/:id", studentHandler.Replace)
+	s.Patch("/:id", studentHandler.Patch)
+	s.Delete("/:id", studentHandler.Delete)
 
 	app.Use(func(c *fiber.Ctx) error {
 		return fail(c, fiber.StatusNotFound, "endpoint tidak ditemukan")
 	})
 
-	fmt.Println("Server berjalan di http://localhost:3000")
-	log.Fatal(app.Listen(":3000"))
+	port := config.GetEnv("APP_PORT", "3000")
+	fmt.Println("Server berjalan di http://localhost:" + port)
+	log.Fatal(app.Listen(":" + port))
 }

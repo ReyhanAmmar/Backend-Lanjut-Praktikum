@@ -1,2 +1,3 @@
 - Membantu menjelaskan kenapa keunikan lebih baik dijaga oleh basis data, bukan oleh go dan alasan menambahkan indeks selain primary key
 - Membantu memperbaiki error undefined: context dan undefined: pool pada main.go agar endponint/health bisa memeriksa kondisi basis data
+- Membantu pengujian

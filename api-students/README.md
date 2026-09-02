@@ -1,31 +1,119 @@
-# Dokumentasi API Mahasiswa (Student API)
+# api-students
 
-Repositori ini berisi implementasi RESTful API untuk pengelolaan data mahasiswa menggunakan bahasa pemrograman Go dan framework **[Fiber](https://gofiber.io/)**.
+REST API data mahasiswa dengan Fiber v2 dan PostgreSQL, disusun memakai pola repository. Proyek ini adalah lanjutan dari tugas pertemuan 1 (struct Student) dan pertemuan 2 (REST API di memori), sekarang datanya tersimpan permanen di PostgreSQL.
 
-## Tabel Kontrak API
+## Menyiapkan basis data dari nol
 
-Berikut adalah tabel kontrak endpoint API lengkap dengan metode, endpoint, parameter, contoh body, status code, dan contoh responsnya:
+1. Pastikan PostgreSQL sudah terpasang dan menyala.
+2. Buat basis data kosong.
 
-| Metode | Endpoint | Parameter | Contoh Body Permintaan | Status yang Mungkin Dikembalikan | Contoh Respons |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **GET** | `/health` | *Tidak ada* | *Tidak ada* | `200 OK` | `{"success": true, "message": "service mahasiswa berjalan normal", "data": {"timestamp": "2026-08-27T00:00:00Z"}}` |
-| **GET** | `/api/v1/students` | **Query Params (Opsional):**<br>• `page` (int, default: `1`)<br>• `limit` (int, default: `10`)<br>• `search` (string)<br>• `sort` (`id`, `nim`, `name`, `grade`, `created_at`)<br>• `order` (`asc`, `desc`)<br>• `is_active` (`true`, `false`) | *Tidak ada* | `200 OK` | `{"success": true, "message": "daftar mahasiswa berhasil diambil", "data": [{"id": 1, "nim": "434241061", "name": "Muhammad Reyhan Ammar", "grade": 90, "is_active": true, "created_at": "2026-08-27T00:04:32Z"}], "meta": {"page": 1, "limit": 10, "total": 1, "total_pages": 1}}` |
-| **GET** | `/api/v1/students/:id` | **Path Param:**<br>• `id` (integer positif, wajib) | *Tidak ada* | • `200 OK`<br>• `400 Bad Request`<br>• `404 Not Found` | `{"success": true, "message": "mahasiswa ditemukan", "data": {"id": 1, "nim": "434241061", "name": "Muhammad Reyhan Ammar", "grade": 90, "is_active": true, "created_at": "2026-08-27T00:04:32Z"}}` |
-| **POST** | `/api/v1/students` | **Header (Wajib):**<br>• `Content-Type: application/json` | `{"nim": "434241061", "name": "Muhammad Reyhan Ammar", "grade": 90.0}` | • `201 Created`<br>• `400 Bad Request`<br>• `409 Conflict`<br>• `415 Unsupported Media Type`<br>• `422 Unprocessable Entity` | `{"success": true, "message": "mahasiswa berhasil didaftarkan", "data": {"id": 1, "nim": "434241061", "name": "Muhammad Reyhan Ammar", "grade": 90, "is_active": true, "created_at": "2026-08-27T00:04:32Z"}}` |
-| **PUT** | `/api/v1/students/:id` | **Path Param:**<br>• `id` (integer positif, wajib)<br>**Header (Wajib):**<br>• `Content-Type: application/json` | `{"nim": "434241061", "name": "Muhammad Reyhan Ammar", "grade": 95.0, "is_active": true}` | • `200 OK`<br>• `400 Bad Request`<br>• `404 Not Found`<br>• `415 Unsupported Media Type`<br>• `422 Unprocessable Entity` | `{"success": true, "message": "data mahasiswa berhasil diganti seluruhnya", "data": {"id": 1, "nim": "434241061", "name": "Muhammad Reyhan Ammar", "grade": 95, "is_active": true, "created_at": "2026-08-27T00:04:32Z"}}` |
-| **PATCH** | `/api/v1/students/:id` | **Path Param:**<br>• `id` (integer positif, wajib)<br>**Header (Wajib):**<br>• `Content-Type: application/json` | `{"grade": 98.0, "is_active": false}` | • `200 OK`<br>• `400 Bad Request`<br>• `404 Not Found`<br>• `415 Unsupported Media Type`<br>• `422 Unprocessable Entity` | `{"success": true, "message": "data mahasiswa berhasil diperbarui sebagian", "data": {"id": 1, "nim": "434241061", "name": "Muhammad Reyhan Ammar", "grade": 98, "is_active": false, "created_at": "2026-08-27T00:04:32Z"}}` |
-| **DELETE** | `/api/v1/students/:id` | **Path Param:**<br>• `id` (integer positif, wajib) | *Tidak ada* | • `204 No Content`<br>• `400 Bad Request`<br>• `404 Not Found` | *(Body kosong / No Content)* |
+   ```
+   psql -U postgres -c "CREATE DATABASE students;"
+   ```
 
+3. Jalankan berkas migrasi untuk membuat tabel `students`.
 
-## Keterangan Status Code HTTP
+   ```
+   psql -U postgres -d students -f migrations/001_create_students.sql
+   ```
 
-| Status Code | Nama Status | Keterangan |
-| :--- | :--- | :--- |
-| **`200`** | **OK** | Permintaan berhasil diproses dan data berhasil dikembalikan/diperbarui. |
-| **`201`** | **Created** | Data mahasiswa baru berhasil disimpan ke dalam server. |
-| **`204`** | **No Content** | Data berhasil dihapus dari server tanpa mengembalikan konten body. |
-| **`400`** | **Bad Request** | Parameter ID bukan angka bulat positif atau format JSON rusak/tidak valid. |
-| **`404`** | **Not Found** | Endpoint tidak ditemukan atau ID mahasiswa tidak ada di database/memori. |
-| **`409`** | **Conflict** | Terjadi konflik duplikasi data unik (NIM sudah digunakan oleh mahasiswa lain). |
-| **`415`** | **Unsupported Media Type** | Header `Content-Type` pada request ber-body bukan `application/json`. |
-| **`422`** | **Unprocessable Entity** | Format JSON valid namun melanggar aturan validasi (field wajib kosong / nilai di luar rentang `0.00 - 100.00`). |
+4. Periksa hasilnya.
+
+   ```
+   psql -U postgres -d students -c "\d students"
+   ```
+
+## Skema tabel students
+
+| Kolom      | Tipe          | Batasan                                   |
+|------------|---------------|--------------------------------------------|
+| id         | SERIAL        | PRIMARY KEY                                 |
+| nim        | VARCHAR(20)   | NOT NULL, unik lewat UNIQUE INDEX           |
+| name       | VARCHAR(150)  | NOT NULL                                    |
+| grade      | NUMERIC(5,2)  | NOT NULL, DEFAULT 0, CHECK 0–100            |
+| is_active  | BOOLEAN       | NOT NULL, DEFAULT TRUE                      |
+| created_at | TIMESTAMPTZ   | NOT NULL, DEFAULT NOW()                     |
+
+Indeks yang dibuat:
+
+- `students_nim_key`, UNIQUE INDEX pada kolom `nim`. Menjaga keunikan NIM di level basis data, bukan hanya di kode Go, supaya tidak ada celah balapan ketika dua permintaan datang bersamaan.
+- `students_grade_idx`, INDEX biasa pada kolom `grade`. Mempercepat query dengan filter `min_grade` dan `max_grade`, serta query dengan pengurutan berdasarkan grade.
+
+## Variabel environment
+
+Salin `.env.example` menjadi `.env`, lalu isi sesuai lingkungan Anda. Berkas `.env` tidak pernah ikut ter-commit.
+
+| Variabel      | Kegunaan                              | Nilai bawaan         |
+|---------------|----------------------------------------|-----------------------|
+| APP_PORT      | Port server Fiber                     |                   
+|
+| DB_HOST       | Host PostgreSQL                       | 
+|
+| DB_PORT       | Port PostgreSQL                       |                 
+|
+| DB_USER       | Username PostgreSQL                   |               
+|
+| DB_PASSWORD   | Password PostgreSQL                   | 
+|
+| DB_NAME       | Nama database                         |
+|
+| DB_SSLMODE    | Mode SSL koneksi                      | 
+|
+| DB_MAX_CONNS  | Jumlah maksimum koneksi dalam pool    | 
+|
+
+## Menjalankan proyek
+
+```
+go mod tidy
+go run .
+```
+
+Server berjalan di `http://localhost:3000`. Karena proyek ini terdiri atas beberapa berkas dan paket, gunakan `go run .`, bukan `go run main.go`.
+
+## Kontrak API
+
+Amplop respons yang dipakai konsisten di seluruh endpoint.
+
+Berhasil, satu data:
+```json
+{ "success": true, "message": "...", "data": { } }
+```
+
+Berhasil, daftar data:
+```json
+{ "success": true, "message": "...", "data": [ ], "meta": { "page": 1, "limit": 10, "total": 0, "total_pages": 0 } }
+```
+
+Gagal biasa:
+```json
+{ "success": false, "message": "student tidak ditemukan" }
+```
+
+Gagal validasi:
+```json
+{ "success": false, "message": "validasi gagal", "errors": { "nim": "wajib diisi" } }
+```
+
+| Metode | Endpoint                | Parameter / Body                                                                 | Contoh body permintaan                                                        | Status mungkin      | Contoh respons singkat                                   |
+|--------|--------------------------|-----------------------------------------------------------------------------------|--------------------------------------------------------------------------------|----------------------|-------------------------------------------------------------|
+| GET    | /api/v1/health           | –                                                                                   | –                                                                                | 200, 503             | `{ "success": true, "message": "server dan database berjalan" }` |
+| GET    | /api/v1/students         | query: page, limit, search, sort, order, is_active, min_grade, max_grade          | –                                                                                | 200                   | `{ "success": true, "data": [ ], "meta": { } }`              |
+| GET    | /api/v1/students/:id     | path: id                                                                            | –                                                                                | 200, 400, 404         | `{ "success": true, "data": { "id": 1, "nim": "123" } }`     |
+| POST   | /api/v1/students         | body: nim, name, grade                                                             | `{"nim":"123456","name":"Sari","grade":85}`                                     | 201, 400, 415, 422, 409 | header `Location: /api/v1/students/1`                    |
+| PUT    | /api/v1/students/:id     | path: id · body: nim, name, grade, is_active (semua wajib)                        | `{"nim":"123456","name":"Sari Dewi","grade":90,"is_active":true}`               | 200, 400, 404, 415, 422, 409 | `{ "success": true, "message": "student berhasil diganti seluruhnya" }` |
+| PATCH  | /api/v1/students/:id     | path: id · body: sebagian dari nim, name, grade, is_active                        | `{"is_active":false}`                                                           | 200, 400, 404, 415, 422, 409 | `{ "success": true, "message": "student berhasil diperbarui sebagian" }` |
+| DELETE | /api/v1/students/:id     | path: id                                                                            | –                                                                                | 204, 400, 404         | tanpa body                                                    |
+
+## Query string pada GET /api/v1/students
+
+| Parameter  | Kegunaan                              | Nilai bawaan aman |
+|------------|-----------------------------------------|---------------------|
+| page       | Halaman keberapa                       | 1                   |
+| limit      | Baris per halaman, batas atas 50       | 10                  |
+| search     | Cari pada kolom name, tidak case-sensitive (ILIKE) | kosong |
+| sort       | Kolom pengurutan, daftar putih: id, nim, name, grade, created_at | id |
+| order      | asc atau desc                          | asc                 |
+| is_active  | Saring berdasarkan status aktif        | tidak menyaring     |
+| min_grade  | Saring nilai minimum                   | tidak menyaring     |
+| max_grade  | Saring nilai maksimum                  | tidak menyaring     |
