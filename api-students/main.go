@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"strings"
 	"time"
+
+	"api-students/database"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -29,6 +32,13 @@ func requireJSON(c *fiber.Ctx) error {
 }
 
 func main() {
+	ctx := context.Background()
+	pool, err := database.NewPool(ctx)
+	if err != nil {
+		log.Fatalf("gagal inisialisasi database pool: %v", err)
+	}
+	defer pool.Close()
+
 	app := fiber.New(fiber.Config{
 		AppName: "Praktikum Backend Lanjut - Tugas 2",
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
@@ -50,10 +60,15 @@ func main() {
 
 	api := app.Group("/api/v1")
 
-	app.Get("/health", func(c *fiber.Ctx) error {
-		return ok(c, "service mahasiswa berjalan normal", fiber.Map{
-			"timestamp": time.Now(),
-		})
+	api.Get("/health", func(c *fiber.Ctx) error {
+		ctx, cancel := context.WithTimeout(c.UserContext(), 5*time.Second)
+		defer cancel()
+
+		if err := pool.Ping(ctx); err != nil {
+			return fail(c, fiber.StatusServiceUnavailable,
+				"database tidak dapat dihubungi")
+		}
+		return ok(c, "server dan database berjalan", nil)
 	})
 
 	s := api.Group("/students", requireJSON)
@@ -65,9 +80,9 @@ func main() {
 	s.Delete("/:id", deleteStudent)
 
 	app.Use(func(c *fiber.Ctx) error {
-        return fail(c, fiber.StatusNotFound, "endpoint tidak ditemukan")
-    })
- 
-    fmt.Println("Server berjalan di http://localhost:3000")
-    log.Fatal(app.Listen(":3000"))
+		return fail(c, fiber.StatusNotFound, "endpoint tidak ditemukan")
+	})
+
+	fmt.Println("Server berjalan di http://localhost:3000")
+	log.Fatal(app.Listen(":3000"))
 }
