@@ -14,7 +14,9 @@ func ValidateCreate(req model.CreateStudentRequest) map[string]string {
 	if strings.TrimSpace(req.Name) == "" {
 		errs["name"] = "wajib diisi"
 	}
-	if msg := validateGradeRange(req.Grade); msg != "" {
+	if req.Grade == nil {
+		errs["grade"] = "wajib diisi"
+	} else if msg := validateGradeRange(*req.Grade); msg != "" {
 		errs["grade"] = msg
 	}
 	return errs

@@ -26,3 +26,15 @@ func Register(app *fiber.App, pool *pgxpool.Pool, studentService *service.Studen
 	students.Delete("/:id", studentService.Delete)
 }
 
+func healthCheck(pool *pgxpool.Pool) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		ctx, cancel := context.WithTimeout(c.UserContext(), 2*time.Second)
+		defer cancel()
+ 
+		if err := pool.Ping(ctx); err != nil {
+			return helper.Fail(c, fiber.StatusServiceUnavailable,
+				"database tidak dapat dihubungi")
+		}
+		return helper.Success(c, fiber.StatusOK, "server dan database berjalan", nil)
+	}
+}

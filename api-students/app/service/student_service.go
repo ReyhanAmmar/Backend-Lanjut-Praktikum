@@ -1,3 +1,5 @@
+package service
+
 import (
 	"api-students/app/model"
 	"errors"
@@ -73,7 +75,7 @@ func (s *StudentService) Create(c *fiber.Ctx) error {
 	newStudent, err := s.repo.Create(ctx, model.Student{
 		NIM:      req.NIM,
 		Name:     req.Name,
-		Grade:    req.Grade,
+		Grade:    *req.Grade,
 		IsActive: true,
 	})
 	if err != nil {
