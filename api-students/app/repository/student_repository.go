@@ -156,11 +156,15 @@ func (r *studentPostgresRepository) Create(
 	ctx context.Context, s model.Student,
 ) (model.Student, error) {
 
+	if s.Role == "" {
+		s.Role = "student"
+	}
+
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO students (nim, name, grade, is_active)
-		 VALUES ($1, $2, $3, $4)
+		`INSERT INTO students (nim, name, grade, is_active, password, role)
+		 VALUES ($1, $2, $3, $4, $5, $6)
 		 RETURNING id, created_at`,
-		s.NIM, s.Name, s.Grade, s.IsActive,
+		s.NIM, s.Name, s.Grade, s.IsActive, s.Password, s.Role,
 	).Scan(&s.ID, &s.CreatedAt)
 
 	if err != nil {

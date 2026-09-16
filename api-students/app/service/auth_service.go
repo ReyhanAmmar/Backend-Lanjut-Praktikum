@@ -58,7 +58,9 @@ func (s *AuthService) Register(c *fiber.Ctx) error {
 	created, err := s.students.Create(ctx, model.Student{
         NIM:      req.NIM,
         Name:     req.Name,
+        Grade:    req.Grade,
         Password: hashed,
+        Role:     "student",
         IsActive: true,
     })
     if err != nil {
