@@ -85,26 +85,64 @@ func (s *AuthService) Login(c *fiber.Ctx) error {
         return helper.FailValidation(c, errs)
     }
  
-    user, err := s.students.FindByNIM(ctx, strings.TrimSpace(req.NIM))
+    student, err := s.students.FindByNIM(ctx, strings.TrimSpace(req.NIM))
     if err != nil {
         helper.VerifyDummyPassword(req.Password)
         return helper.Fail(c, fiber.StatusUnauthorized, "NIM atau password salah")
     }
  
-    if !helper.VerifyPassword(user.Password, req.Password) {
+    if !helper.VerifyPassword(student.Password, req.Password) {
         return helper.Fail(c, fiber.StatusUnauthorized, "NIM atau password salah")
     }
  
-    if !user.IsActive {
+    if !student.IsActive {
         return helper.Fail(c, fiber.StatusForbidden, "akun dinonaktifkan")
     }
  
-    pair, err := s.issueTokenPair(ctx, user)
+    pair, err := s.issueTokenPair(ctx, student)
     if err != nil {
         return helper.Fail(c, fiber.StatusInternalServerError, "gagal membuat token")
     }
  
     return helper.Success(c, fiber.StatusOK, "login berhasil", pair)
+}
+
+func (s *AuthService) Refresh(c *fiber.Ctx) error {
+    ctx, cancel := helper.RequestContext(c)
+    defer cancel()
+ 
+    var req model.RefreshRequest
+    if err := c.BodyParser(&req); err != nil {
+        return helper.Fail(c, fiber.StatusBadRequest, "body harus berupa JSON yang valid")
+    }
+ 
+    if strings.TrimSpace(req.RefreshToken) == "" {
+        return helper.Fail(c, fiber.StatusBadRequest, "refresh_token wajib diisi")
+    }
+ 
+    hash := helper.SHA256Hex(req.RefreshToken)
+ 
+    stored, err := s.tokens.FindActive(ctx, hash)
+    if err != nil {
+        return helper.Fail(c, fiber.StatusUnauthorized,
+            "refresh token tidak valid atau sudah kedaluwarsa")
+    }
+ 
+    student, err := s.students.FindByID(ctx, stored.StudentID)
+    if err != nil || !student.IsActive {
+        return helper.Fail(c, fiber.StatusUnauthorized, "akun tidak dapat dipakai")
+    }
+ 
+    if err := s.tokens.Revoke(ctx, hash); err != nil {
+        return helper.Fail(c, fiber.StatusInternalServerError, "gagal memperbarui token")
+    }
+ 
+    pair, err := s.issueTokenPair(ctx, student)
+    if err != nil {
+        return helper.Fail(c, fiber.StatusInternalServerError, "gagal membuat token")
+    }
+ 
+    return helper.Success(c, fiber.StatusOK, "token berhasil diperbarui", pair)
 }
 
 func (s *AuthService) Logout(c *fiber.Ctx) error {
