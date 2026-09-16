@@ -129,6 +129,28 @@ func (r *studentPostgresRepository) FindByID(
 	return s, nil
 }
 
+func (r *studentPostgresRepository) FindByNIM(
+	ctx context.Context, nim string,
+) (model.Student, error) {
+
+	var student model.Student
+
+	err := r.pool.QueryRow(
+		ctx,
+		`SELECT id, nim, name, grade, is_active, created_at, password, role
+		FROM students WHERE LOWER(nim) = LOWER($1)`, nim,
+	).Scan(&student.ID, &student.NIM, &student.Name, &student.Grade, &student.IsActive, &student.CreatedAt, &student.Password, &student.Role)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return model.Student{}, ErrNotFound
+		}
+		return model.Student{}, fmt.Errorf("mengambil student: %w", err)
+	}
+
+	return student, nil
+}
+
 func (r *studentPostgresRepository) Create(
 	ctx context.Context, s model.Student,
 ) (model.Student, error) {
