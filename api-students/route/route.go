@@ -40,7 +40,7 @@ func Register(app *fiber.App, deps Dependencies) {
 
 	users.Get("/", middleware.RequirePermission(perms, "student:list"), deps.StudentService.List)
 	users.Post("/", middleware.RequirePermission(perms, "student:update:any"), deps.StudentService.Create)
-	users.Patch("/:id", middleware.RequirePermission(perms, "role:assign"), deps.StudentService.Patch)
+	users.Patch("/:id", middleware.RequirePermission(perms, "role:assign"), deps.StudentService.AssignRole)
 	users.Delete("/:id", middleware.RequirePermission(perms, "student:delete"), deps.StudentService.Delete)
 
 	users.Get("/:id", deps.StudentService.Get)

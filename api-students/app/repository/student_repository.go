@@ -201,6 +201,22 @@ func (r *studentPostgresRepository) Update(
 	return s, nil
 }
 
+func (r *studentPostgresRepository) UpdateRole(
+    ctx context.Context, id int, role string,
+) (model.Student, error) {
+    updated, err := scanStudent(r.pool.QueryRow(ctx,
+        "UPDATE students SET role = $1 WHERE id = $2 RETURNING "+studentColumns,
+        role, id))
+    if err != nil {
+        if errors.Is(err, pgx.ErrNoRows) {
+            return model.Student{}, ErrNotFound
+        }
+        return model.Student{}, fmt.Errorf("mengubah role user: %w", err)
+    }
+    return updated, nil
+}
+
+
 func (r *studentPostgresRepository) Delete(ctx context.Context, id int) error {
 	tag, err := r.pool.Exec(ctx, `DELETE FROM students WHERE id = $1`, id)
 	if err != nil {
