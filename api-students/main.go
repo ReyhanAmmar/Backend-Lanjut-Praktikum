@@ -43,20 +43,31 @@ func main() {
     )
  
     studentRepository := repository.NewStudentRepository(pool)
-    tokenRepository := repository.NewTokenRepository(pool)
- 
-    studentService := service.NewStudentService(studentRepository)
-    authService := service.NewAuthService(
-        studentRepository, tokenRepository, jwtManager,
-        time.Duration(config.GetEnvInt("JWT_REFRESH_TTL_DAYS", 7))*24*time.Hour,
-    )
- 
-    app := config.NewApp(logger, route.Dependencies{
-        Pool:        pool,
-        JWT:         jwtManager,
-        StudentService: studentService,
-        AuthService: authService,
-    })
+	tokenRepository := repository.NewTokenRepository(pool)
+	roleRepository := repository.NewRoleRepository(pool)
+
+	rawPermissions, err := roleRepository.LoadPermissions(context.Background())
+	if err != nil {
+		logger.Error("gagal memuat permission", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	permissions := helper.NewPermissionSet(rawPermissions)
+	logger.Info("permission dimuat",
+		slog.Any("roles", permissions.KnownRoles()))
+
+	studentService := service.NewStudentService(studentRepository, permissions)
+	authService := service.NewAuthService(
+		studentRepository, tokenRepository, jwtManager, permissions,
+		time.Duration(config.GetEnvInt("JWT_REFRESH_TTL_DAYS", 7))*24*time.Hour,
+	)
+
+	app := config.NewApp(logger, route.Dependencies{
+		Pool:           pool,
+		JWT:            jwtManager,
+		Permissions:    permissions,
+		StudentService: studentService,
+		AuthService:    authService,
+	})
 
 	port := config.GetEnv("APP_PORT", "3000")
  
