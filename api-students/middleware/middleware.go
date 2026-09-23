@@ -69,3 +69,20 @@ func RequireJSON(c *fiber.Ctx) error {
 	}
 	return c.Next()
 }
+
+attrs := []any{
+    slog.String("request_id", requestID),
+    slog.String("method", c.Method()),
+    slog.String("path", c.Path()),
+    slog.Int("status", c.Response().StatusCode()),
+    slog.Duration("duration", time.Since(start)),
+    slog.String("ip", c.IP()),
+}
+
+if current, ok := helper.CurrentStudent(c); ok {
+    attrs = append(attrs,
+        slog.Int("student_id", student.StudentID),
+        slog.String("role", student.Role))
+}
+ 
+logger.Info("http_request", attrs...)

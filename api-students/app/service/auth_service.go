@@ -177,7 +177,10 @@ func (s *AuthService) Me(c *fiber.Ctx) error {
         return helper.Fail(c, fiber.StatusUnauthorized, "student tidak ditemukan")
     }
  
-    return helper.Success(c, fiber.StatusOK, "profil berhasil diambil", student)
+    return helper.Success(c, fiber.StatusOK, "profil berhasil diambil", fiber.Map{
+		"student":     student,
+		"permissions": s.perms.PermissionsOf(student.Role),
+	})
 }
 
 func (s *AuthService) issueTokenPair(
