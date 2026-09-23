@@ -4,22 +4,23 @@ import "time"
 
 type Student struct {
 	ID        int       `json:"id"`
-	NIM       string   `json:"nim"`
+	NIM       string    `json:"nim"`
 	Name      string    `json:"name"`
 	Grade     float64   `json:"grade"`
 	Password  string    `json:"-"`
 	Role      string    `json:"role"`
 	IsActive  bool      `json:"is_active"`
+	OwnerID   int       `json:"owner_id"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
 type AssignRoleRequest struct {
-    Role string `json:"role"`
+	Role string `json:"role"`
 }
 
 type CreateStudentRequest struct {
-	NIM   string `json:"nim"`
-	Name  string  `json:"name"`
+	NIM   string   `json:"nim"`
+	Name  string   `json:"name"`
 	Grade *float64 `json:"grade"`
 }
 
@@ -46,26 +47,26 @@ type PatchStudentRequest struct {
 
 type WebResponse struct {
 	Success bool   `json:"success"`
-    Message string `json:"message"`
-    Data    any    `json:"data,omitempty"`
-    Meta    *Meta  `json:"meta,omitempty"`
-    Errors  any    `json:"errors,omitempty"`
+	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
+	Meta    *Meta  `json:"meta,omitempty"`
+	Errors  any    `json:"errors,omitempty"`
 }
 
 type Meta struct {
 	Page       int `json:"page"`
-    Limit      int `json:"limit"`
-    Total      int `json:"total"`
-    TotalPages int `json:"total_pages"`
+	Limit      int `json:"limit"`
+	Total      int `json:"total"`
+	TotalPages int `json:"total_pages"`
 }
 
 type ListQuery struct {
-    Page     int
-    Limit    int
-    Search   string
-    Sort     string
-    Order    string
-    IsActive *bool
+	Page     int
+	Limit    int
+	Search   string
+	Sort     string
+	Order    string
+	IsActive *bool
 	MinGrade *float64
 	MaxGrade *float64
 }

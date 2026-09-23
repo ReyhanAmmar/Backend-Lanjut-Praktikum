@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
- 
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
- 
+
 	"api-students/app/model"
 )
 
@@ -23,6 +23,7 @@ type StudentRepository interface {
 	FindByNIM(ctx context.Context, nim string) (model.Student, error)
 	Create(ctx context.Context, s model.Student) (model.Student, error)
 	Update(ctx context.Context, s model.Student) (model.Student, error)
+	UpdateRole(ctx context.Context, id int, role string) (model.Student, error)
 	Delete(ctx context.Context, id int) error
 }
 
@@ -45,7 +46,7 @@ func NewStudentRepository(pool *pgxpool.Pool) StudentRepository {
 func buildFilter(q model.ListQuery) (string, []any) {
 	where := " WHERE 1 = 1"
 	args := []any{}
- 
+
 	if q.Search != "" {
 		where += fmt.Sprintf(" AND name ILIKE $%d", len(args)+1)
 		args = append(args, "%"+q.Search+"%")
@@ -104,7 +105,7 @@ func (r *studentPostgresRepository) FindAll(
 		}
 		hasil = append(hasil, s)
 	}
-	
+
 	if err := rows.Err(); err != nil {
 		return nil, 0, fmt.Errorf("membaca hasil query: %w", err)
 	}
@@ -126,7 +127,7 @@ func (r *studentPostgresRepository) FindByID(
 		}
 		return model.Student{}, fmt.Errorf("mengambil student: %w", err)
 	}
-	
+
 	return s, nil
 }
 
@@ -204,18 +205,20 @@ func (r *studentPostgresRepository) Update(
 func (r *studentPostgresRepository) UpdateRole(
     ctx context.Context, id int, role string,
 ) (model.Student, error) {
-    updated, err := scanStudent(r.pool.QueryRow(ctx,
-        "UPDATE students SET role = $1 WHERE id = $2 RETURNING "+studentColumns,
-        role, id))
+    var s model.Student
+    err := r.pool.QueryRow(ctx,
+        `UPDATE students SET role = $1 WHERE id = $2
+         RETURNING id, nim, name, grade, is_active, created_at, role`,
+        role, id,
+    ).Scan(&s.ID, &s.NIM, &s.Name, &s.Grade, &s.IsActive, &s.CreatedAt, &s.Role)
     if err != nil {
         if errors.Is(err, pgx.ErrNoRows) {
             return model.Student{}, ErrNotFound
         }
-        return model.Student{}, fmt.Errorf("mengubah role user: %w", err)
+        return model.Student{}, fmt.Errorf("mengubah role student: %w", err)
     }
-    return updated, nil
+    return s, nil
 }
-
 
 func (r *studentPostgresRepository) Delete(ctx context.Context, id int) error {
 	tag, err := r.pool.Exec(ctx, `DELETE FROM students WHERE id = $1`, id)

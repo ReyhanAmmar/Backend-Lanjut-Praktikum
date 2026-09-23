@@ -17,20 +17,26 @@ import (
 const refreshTokenBytes = 32
 
 type AuthService struct {
-    students      repository.StudentRepository
-    tokens     repository.TokenRepository
-    jwt        *helper.JWTManager
-    refreshTTL time.Duration
+    students    repository.StudentRepository
+    tokens      repository.TokenRepository
+    jwt         *helper.JWTManager
+    perms       *helper.PermissionSet
+    refreshTTL  time.Duration
 }
 
 func NewAuthService(
-    students repository.StudentRepository,
-    tokens repository.TokenRepository,
-    jwtManager *helper.JWTManager,
-    refreshTTL time.Duration,
+    students    repository.StudentRepository,
+    tokens      repository.TokenRepository,
+    jwtManager  *helper.JWTManager,
+    perms       *helper.PermissionSet,
+    refreshTTL  time.Duration,
 ) *AuthService {
     return &AuthService{
-        students: students, tokens: tokens, jwt: jwtManager, refreshTTL: refreshTTL,
+        students:   students,
+        tokens:     tokens,
+        jwt:        jwtManager,
+        perms:      perms,
+        refreshTTL: refreshTTL,
     }
 }
 

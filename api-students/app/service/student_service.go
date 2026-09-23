@@ -87,19 +87,19 @@ func (s *StudentService) Create(c *fiber.Ctx) error {
 		return helper.FailValidation(c, errs)
 	}
 
-	baru, err := s.repo.Create(ctx, model.Student{
+	newStudent, err := s.repo.Create(ctx, model.Student{
 		NIM:      req.NIM,
-		Name:     strings.TrimSpace(req.Name),
-		Grade:    req.Grade,
-		IsActive: req.IsActive,
-		OwnerID:  current.UserID,
+		Name:     req.Name,
+		Grade:    *req.Grade,
+		IsActive: true,
+		OwnerID:  current.StudentID,
 	})
 	if err != nil {
 		return translateError(c, err, "gagal menyimpan student")
 	}
 
-	return helper.Created(c, "student berhasil dibuat", baru,
-		"/api/v1/students/"+strconv.Itoa(baru.ID))
+	return helper.Created(c, "student berhasil dibuat", newStudent,
+		"/api/v1/students/"+strconv.Itoa(newStudent.ID))
 }
 
 func (s *StudentService) Replace(c *fiber.Ctx) error {
@@ -121,7 +121,7 @@ func (s *StudentService) Replace(c *fiber.Ctx) error {
 			"tidak berhak mengubah data student lain")
 	}
 
-	var req model.UpdateStudentRequest
+	var req model.ReplaceStudentRequest
 	if err := c.BodyParser(&req); err != nil {
 		return helper.Fail(c, fiber.StatusBadRequest,
 			"body harus berupa JSON yang valid")
@@ -192,13 +192,54 @@ func (s *StudentService) Patch(c *fiber.Ctx) error {
 	return helper.Success(c, fiber.StatusOK, "student berhasil diperbarui sebagian", hasil)
 }
 
-func (s *StudentService) Delete(c *fiber.Ctx) error {
+func (s *StudentService) AssignRole(c *fiber.Ctx) error {
 	ctx, cancel := helper.RequestContext(c)
 	defer cancel()
+
+	current, ok := helper.CurrentStudent(c)
+	if !ok {
+		return helper.Fail(c, fiber.StatusUnauthorized, "belum terautentikasi")
+	}
 
 	id, valid := helper.ParamID(c)
 	if !valid {
 		return helper.Fail(c, fiber.StatusBadRequest, "id harus berupa angka positif")
+	}
+
+	var req model.AssignRoleRequest
+	if err := c.BodyParser(&req); err != nil {
+		return helper.Fail(c, fiber.StatusBadRequest, "body harus berupa JSON yang valid")
+	}
+
+	if errs := ValidateAssignRole(current, id, req, s.perms); len(errs) > 0 {
+		return helper.FailValidation(c, errs)
+	}
+
+	result, err := s.repo.UpdateRole(ctx, id, strings.TrimSpace(req.Role))
+	if err != nil {
+		return translateError(c, err, "gagal mengubah role student")
+	}
+
+	return helper.Success(c, fiber.StatusOK, "role student berhasil diubah", result)
+}
+
+func (s *StudentService) Delete(c *fiber.Ctx) error {
+	ctx, cancel := helper.RequestContext(c)
+	defer cancel()
+
+	current, ok := helper.CurrentStudent(c)
+	if !ok {
+		return helper.Fail(c, fiber.StatusUnauthorized, "belum terautentikasi")
+	}
+
+	id, valid := helper.ParamID(c)
+	if !valid {
+		return helper.Fail(c, fiber.StatusBadRequest, "id harus berupa angka positif")
+	}
+
+	// Punya permission menghapus tidak berarti boleh menghapus akun sendiri
+	if current.StudentID == id {
+		return helper.Fail(c, fiber.StatusForbidden, "tidak boleh menghapus akun sendiri")
 	}
 
 	if err := s.repo.Delete(ctx, id); err != nil {
