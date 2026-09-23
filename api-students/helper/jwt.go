@@ -1,14 +1,14 @@
 package helper
 
 import (
-    "errors"
-    "fmt"
-    "strconv"
-    "time"
- 
-    "github.com/golang-jwt/jwt/v5"
- 
-    "api-students/app/model"
+	"errors"
+	"fmt"
+	"strconv"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+
+	"api-students/app/model"
 )
 
 var (
@@ -29,10 +29,10 @@ type JWTManager struct {
 }
 
 func NewJWTManager(secret, issuer string, accessTTL time.Duration) *JWTManager {
-    return &JWTManager{secret: []byte(secret), issuer: issuer, accessTTL: accessTTL}
+	return &JWTManager{secret: []byte(secret), issuer: issuer, accessTTL: accessTTL}
 }
 
-func (m *JWTManager) AccessTTL() time.Duration {return m.accessTTL}
+func (m *JWTManager) AccessTTL() time.Duration { return m.accessTTL }
 
 func (m *JWTManager) GenerateAccess(student model.Student) (string, error) {
 	now := time.Now()
@@ -55,7 +55,7 @@ func (m *JWTManager) GenerateAccess(student model.Student) (string, error) {
 func (m *JWTManager) Parse(tokenString string) (model.AuthStudent, error) {
 	claims := &accessClaims{}
 
-	token, err := jwt.ParseWithClaims(tokenString,claims,
+	token, err := jwt.ParseWithClaims(tokenString, claims,
 		func(t *jwt.Token) (any, error) {
 			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("algoritma tidak diharapkan: %v", t.Header["alg"])

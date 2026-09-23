@@ -157,7 +157,7 @@ func (r *studentPostgresRepository) Create(
 ) (model.Student, error) {
 
 	if s.Role == "" {
-		s.Role = "student"
+		s.Role = "user"
 	}
 
 	err := r.pool.QueryRow(ctx,
