@@ -65,6 +65,10 @@ func (s *StudentService) Get(c *fiber.Ctx) error {
 		return translateError(c, err, "gagal mengambil data student")
 	}
 
+	if !CanAccessStudent(current,student.OwnerID,s.perms,"student:read:any") {
+		return helper.Fail(c,fiber.StatusForbidden,"tidak berhak mengakses data student lain")
+	}
+
 	return helper.Success(c, fiber.StatusOK, "student ditemukan", student)
 }
 
@@ -116,7 +120,12 @@ func (s *StudentService) Replace(c *fiber.Ctx) error {
 		return helper.Fail(c, fiber.StatusBadRequest, "id harus berupa angka positif")
 	}
 
-	if !CanAccessStudent(current, id, s.perms, "student:update:any") {
+	student, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return translateError(c, err, "gagal mengambil data student")
+	}
+
+	if !CanAccessStudent(current, student.OwnerID, s.perms, "student:update:any") {
 		return helper.Fail(c, fiber.StatusForbidden,
 			"tidak berhak mengubah data student lain")
 	}
@@ -159,7 +168,12 @@ func (s *StudentService) Patch(c *fiber.Ctx) error {
 		return helper.Fail(c, fiber.StatusBadRequest, "id harus berupa angka positif")
 	}
 
-	if !CanAccessStudent(current, id, s.perms, "student:update:any") {
+	student, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return translateError(c, err, "gagal mengambil data student")
+	}
+
+	if !CanAccessStudent(current, student.OwnerID, s.perms, "student:update:any") {
 		return helper.Fail(c, fiber.StatusForbidden,
 			"tidak berhak mengubah data student lain")
 	}
@@ -174,15 +188,12 @@ func (s *StudentService) Patch(c *fiber.Ctx) error {
 		return helper.Fail(c, fiber.StatusBadRequest, "tidak ada field yang diubah")
 	}
 
-	saatIni, err := s.repo.FindByID(ctx, id)
-	if err != nil {
-		return translateError(c, err, "gagal mengambil data student")
-	}
-
-	updated, errs := ApplyPatch(saatIni, req)
+	updated, errs := ApplyPatch(student, req)
 	if len(errs) > 0 {
 		return helper.FailValidation(c, errs)
 	}
+
+	updated.OwnerID = student.OwnerID
 
 	hasil, err := s.repo.Update(ctx, updated)
 	if err != nil {

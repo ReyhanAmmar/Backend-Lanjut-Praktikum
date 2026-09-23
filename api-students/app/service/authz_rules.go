@@ -7,18 +7,6 @@ import (
 	"api-students/helper"
 )
 
-func CanAccessStudent(
-	current model.AuthStudent,
-	targetID int,
-	perms *helper.PermissionSet,
-	anyPermission string,
-) bool {
-	if current.StudentID == targetID {
-		return true
-	}
-	return perms.Can(current.Role, anyPermission)
-}
-
 func ValidateAssignRole(
 	current model.AuthStudent,
 	targetID int,

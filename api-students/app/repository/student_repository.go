@@ -118,9 +118,9 @@ func (r *studentPostgresRepository) FindByID(
 	var s model.Student
 
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, nim, name, grade, is_active, created_at
+		`SELECT id, nim, name, grade, is_active, created_at, role, owner_id
 		 FROM students WHERE id = $1`, id,
-	).Scan(&s.ID, &s.NIM, &s.Name, &s.Grade, &s.IsActive, &s.CreatedAt)
+	).Scan(&s.ID, &s.NIM, &s.Name, &s.Grade, &s.IsActive, &s.CreatedAt, &s.Role, &s.OwnerID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return model.Student{}, ErrNotFound
@@ -162,10 +162,10 @@ func (r *studentPostgresRepository) Create(
 	}
 
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO students (nim, name, grade, is_active, password, role)
-		 VALUES ($1, $2, $3, $4, $5, $6)
-		 RETURNING id, created_at`,
-		s.NIM, s.Name, s.Grade, s.IsActive, s.Password, s.Role,
+		`INSERT INTO students (nim, name, grade, is_active, password, role, owner_id)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		 RETURNING id, created_at, owner_id`,
+		s.NIM, s.Name, s.Grade, s.IsActive, s.Password, s.Role, s.OwnerID,
 	).Scan(&s.ID, &s.CreatedAt)
 
 	if err != nil {
@@ -185,9 +185,9 @@ func (r *studentPostgresRepository) Update(
 	err := r.pool.QueryRow(ctx,
 		`UPDATE students SET nim = $1, name = $2, grade = $3, is_active = $4
 		 WHERE id = $5
-		 RETURNING id, nim, name, grade, is_active, created_at`,
+		 RETURNING id, nim, name, grade, is_active, created_at, role, owner_id`,
 		s.NIM, s.Name, s.Grade, s.IsActive, s.ID,
-	).Scan(&s.ID, &s.NIM, &s.Name, &s.Grade, &s.IsActive, &s.CreatedAt)
+	).Scan(&s.ID, &s.NIM, &s.Name, &s.Grade, &s.IsActive, &s.CreatedAt, &s.Role, &s.OwnerID)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
