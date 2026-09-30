@@ -1,0 +1,1 @@
+SELECT id, nim, name, role, owner_id FROM students ORDER BY id;

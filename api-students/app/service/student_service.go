@@ -54,12 +54,7 @@ func (s *StudentService) Get(c *fiber.Ctx) error {
 	if !valid {
 		return helper.Fail(c, fiber.StatusBadRequest, "id harus berupa angka positif")
 	}
-
-	if !CanAccessStudent(current, id, s.perms, "student:read:any") {
-		return helper.Fail(c, fiber.StatusForbidden,
-			"tidak berhak mengakses data student lain")
-	}
-
+	
 	student, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return translateError(c, err, "gagal mengambil data student")

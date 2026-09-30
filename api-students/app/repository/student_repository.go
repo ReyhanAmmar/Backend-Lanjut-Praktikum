@@ -162,10 +162,10 @@ func (r *studentPostgresRepository) Create(
 	}
 
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO students (nim, name, grade, is_active, password, role, owner_id)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)
-		 RETURNING id, created_at, owner_id`,
-		s.NIM, s.Name, s.Grade, s.IsActive, s.Password, s.Role, s.OwnerID,
+		`INSERT INTO students (nim, name, grade, is_active, password, role)
+		 VALUES ($1, $2, $3, $4, $5, $6)
+		 RETURNING id, created_at`,
+		s.NIM, s.Name, s.Grade, s.IsActive, s.Password, s.Role,
 	).Scan(&s.ID, &s.CreatedAt)
 
 	if err != nil {
@@ -175,7 +175,20 @@ func (r *studentPostgresRepository) Create(
 		return model.Student{}, fmt.Errorf("menyimpan student: %w", err)
 	}
 
-	return s, nil
+	err = r.pool.QueryRow(
+        ctx,
+        `UPDATE students
+         SET owner_id = $1
+         WHERE id = $1
+         RETURNING owner_id`,
+        s.ID,
+    ).Scan(&s.OwnerID)
+
+    if err != nil {
+        return model.Student{}, err
+    }
+
+    return s, nil
 }
 
 func (r *studentPostgresRepository) Update(
@@ -203,21 +216,21 @@ func (r *studentPostgresRepository) Update(
 }
 
 func (r *studentPostgresRepository) UpdateRole(
-    ctx context.Context, id int, role string,
+	ctx context.Context, id int, role string,
 ) (model.Student, error) {
-    var s model.Student
-    err := r.pool.QueryRow(ctx,
-        `UPDATE students SET role = $1 WHERE id = $2
+	var s model.Student
+	err := r.pool.QueryRow(ctx,
+		`UPDATE students SET role = $1 WHERE id = $2
          RETURNING id, nim, name, grade, is_active, created_at, role`,
-        role, id,
-    ).Scan(&s.ID, &s.NIM, &s.Name, &s.Grade, &s.IsActive, &s.CreatedAt, &s.Role)
-    if err != nil {
-        if errors.Is(err, pgx.ErrNoRows) {
-            return model.Student{}, ErrNotFound
-        }
-        return model.Student{}, fmt.Errorf("mengubah role student: %w", err)
-    }
-    return s, nil
+		role, id,
+	).Scan(&s.ID, &s.NIM, &s.Name, &s.Grade, &s.IsActive, &s.CreatedAt, &s.Role)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return model.Student{}, ErrNotFound
+		}
+		return model.Student{}, fmt.Errorf("mengubah role student: %w", err)
+	}
+	return s, nil
 }
 
 func (r *studentPostgresRepository) Delete(ctx context.Context, id int) error {

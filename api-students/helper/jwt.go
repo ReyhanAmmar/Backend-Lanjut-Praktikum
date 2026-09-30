@@ -39,7 +39,7 @@ func (m *JWTManager) GenerateAccess(student model.Student) (string, error) {
 
 	claims := accessClaims{
 		NIM:  student.NIM,
-		Role: "student",
+		Role: student.Role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   strconv.Itoa(student.ID),
 			Issuer:    m.issuer,
