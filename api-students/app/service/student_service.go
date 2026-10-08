@@ -56,7 +56,7 @@ func (s *StudentService) Get(c *fiber.Ctx) error {
 	
 	student, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return translateError(err, "gagal mengambil data student")
+		return translateError(err, "student")
 	}
 
 	if !CanAccessStudent(current,student.OwnerID,s.perms,"student:read:any") {
@@ -92,7 +92,7 @@ func (s *StudentService) Create(c *fiber.Ctx) error {
 		OwnerID:  current.StudentID,
 	})
 	if err != nil {
-		return translateError(err, "gagal menyimpan student")
+		return translateError(err, "student")
 	}
 
 	return helper.Created(c, "student berhasil dibuat", newStudent,
@@ -115,7 +115,7 @@ func (s *StudentService) Replace(c *fiber.Ctx) error {
 
 	student, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return translateError(err, "gagal mengambil data student")
+		return translateError(err, "student")
 	}
 
 	if !CanAccessStudent(current, student.OwnerID, s.perms, "student:update:any") {
@@ -139,7 +139,7 @@ func (s *StudentService) Replace(c *fiber.Ctx) error {
 		IsActive: req.IsActive,
 	})
 	if err != nil {
-		return translateError(err, "gagal memperbarui student")
+		return translateError(err, "student")
 	}
 
 	return helper.Success(c, fiber.StatusOK, "student berhasil diganti seluruhnya", hasil)
@@ -161,7 +161,7 @@ func (s *StudentService) Patch(c *fiber.Ctx) error {
 
 	student, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return translateError(err, "gagal mengambil data student")
+		return translateError(err, "student")
 	}
 
 	if !CanAccessStudent(current, student.OwnerID, s.perms, "student:update:any") {
@@ -185,7 +185,7 @@ func (s *StudentService) Patch(c *fiber.Ctx) error {
 
 	hasil, err := s.repo.Update(ctx, updated)
 	if err != nil {
-		return translateError(err, "gagal memperbarui student")
+		return translateError(err, "student")
 	}
 
 	return helper.Success(c, fiber.StatusOK, "student berhasil diperbarui sebagian", hasil)
@@ -216,7 +216,7 @@ func (s *StudentService) AssignRole(c *fiber.Ctx) error {
 
 	result, err := s.repo.UpdateRole(ctx, id, strings.TrimSpace(req.Role))
 	if err != nil {
-		return translateError(err, "gagal mengubah role student")
+		return translateError(err, "student")
 	}
 
 	return helper.Success(c, fiber.StatusOK, "role student berhasil diubah", result)
@@ -242,16 +242,16 @@ func (s *StudentService) Delete(c *fiber.Ctx) error {
 	}
 
 	if err := s.repo.Delete(ctx, id); err != nil {
-		return translateError(err, "gagal menghapus student")
+		return translateError(err, "student")
 	}
 
 	return helper.NoContent(c)
 }
 
-func translateError(err error, pesanUmum string) error {
+func translateError(err error, entity string) error {
 	switch {
 	case errors.Is(err, repository.ErrNotFound):
-		return helper.NotFound("student tidak ditemukan")
+		return helper.NotFound(entity + " tidak ditemukan")
 	case errors.Is(err, repository.ErrDuplicate):
 		return helper.Conflict("NIM sudah dipakai")
 	default:

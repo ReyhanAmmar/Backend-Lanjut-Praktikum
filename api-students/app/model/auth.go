@@ -10,8 +10,8 @@ type RegisterRequest struct {
 }
 
 type LoginRequest struct {
-	NIM      string `json:"nim"`
-	Password string `json:"password"`
+	NIM      string `json:"nim" validate:"required"`
+	Password string `json:"password" validate:"required"`
 }
 
 type RefreshRequest struct {
