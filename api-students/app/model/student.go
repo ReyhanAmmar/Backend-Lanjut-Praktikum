@@ -19,15 +19,15 @@ type AssignRoleRequest struct {
 }
 
 type CreateStudentRequest struct {
-	NIM   string   `json:"nim"`
-	Name  string   `json:"name"`
-	Grade *float64 `json:"grade"`
+	NIM   string   `json:"nim" validate:"required,nim"`
+	Name  string   `json:"name" validate:"required,min=3,max=150,studentname"`
+	Grade *float64 `json:"grade" validate:"required,gte=0,lte=100"`
 }
 
 type ReplaceStudentRequest struct {
-	NIM      string  `json:"nim"`
-	Name     string  `json:"name"`
-	Grade    float64 `json:"grade"`
+	NIM      string  `json:"nim" validate:"required,nim"`
+	Name     string  `json:"name" validate:"required,min=3,max=150,studentname"`
+	Grade    float64 `json:"grade" validate:"gte=0,lte=100"`
 	IsActive bool    `json:"is_active"`
 }
 
@@ -39,9 +39,9 @@ type UpdateStudentRequest struct {
 }
 
 type PatchStudentRequest struct {
-	NIM      *string  `json:"nim"`
-	Name     *string  `json:"name"`
-	Grade    *float64 `json:"grade"`
+	NIM      *string  `json:"nim" validate:"omitnil,required,nim"`
+	Name     *string  `json:"name" validate:"omitnil,min=3,max=150,studentname"`
+	Grade    *float64 `json:"grade" validate:"omitnil,gte=0,lte=100"`
 	IsActive *bool    `json:"is_active"`
 }
 
@@ -76,9 +76,9 @@ func (q ListQuery) Offset() int {
 }
 
 type ErrorResponse struct {
-    Success   bool              `json:"success"`
-    Code      string            `json:"code"`
-    Message   string            `json:"message"`
-    Fields    map[string]string `json:"fields,omitempty"`
-    RequestID string            `json:"request_id,omitempty"`
+	Success   bool              `json:"success"`
+	Code      string            `json:"code"`
+	Message   string            `json:"message"`
+	Fields    map[string]string `json:"fields,omitempty"`
+	RequestID string            `json:"request_id,omitempty"`
 }
