@@ -1,14 +1,19 @@
 package helper
 
 import (
-    "github.com/gofiber/fiber/v2"
- 
-    "api-students/app/model"
+	"github.com/gofiber/fiber/v2"
+
+	"api-students/app/model"
 )
 
 const LocalsAuthStudent = "authStudent"
- 
+
 func CurrentStudent(c *fiber.Ctx) (model.AuthStudent, bool) {
-    student, ok := c.Locals(LocalsAuthStudent).(model.AuthStudent)
-    return student, ok
+	student, ok := c.Locals(LocalsAuthStudent).(model.AuthStudent)
+	return student, ok
+}
+
+func RequestID(c *fiber.Ctx) string {
+	id, _ := c.Locals("requestid").(string)
+	return id
 }

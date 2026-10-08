@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"time"
- 
+
 	"github.com/jackc/pgx/v5/pgxpool"
- 
+
 	"api-students/config"
 )
 
@@ -30,7 +30,7 @@ func NewPool(ctx context.Context) (*pgxpool.Pool, error) {
 	cfg.MinConns = 2
 	cfg.MaxConnLifetime = time.Hour
 	cfg.MaxConnIdleTime = 30 * time.Minute
- 
+
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("gagal membuat pool: %w", err)
@@ -42,6 +42,6 @@ func NewPool(ctx context.Context) (*pgxpool.Pool, error) {
 		pool.Close()
 		return nil, fmt.Errorf("gagal terhubung ke database: %w", err)
 	}
- 
+
 	return pool, nil
 }

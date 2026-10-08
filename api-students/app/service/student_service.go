@@ -80,9 +80,9 @@ func (s *StudentService) Create(c *fiber.Ctx) error {
 		return helper.BadRequest("body harus berupa JSON yang valid")
 	}
 
-	if errs := ValidateCreate(req); len(errs) > 0 {
-		return helper.Validation(errs)
-	}
+	if errs := helper.ValidateStruct(req); errs != nil {
+    return helper.Validation(errs)
+}
 
 	newStudent, err := s.repo.Create(ctx, model.Student{
 		NIM:      req.NIM,
@@ -262,3 +262,21 @@ func translateError(err error, entity ...string) error {
 		return helper.Internal(err)
 	}
 }
+
+rows, err := s.repo.FindAfterCursor(ctx, q)
+if err != nil {
+    return helper.Internal(err)
+}
+
+hasMore := len(rows) > q.Limit
+if hasMore {
+    rows = rows[:q.Limit]
+}
+ 
+meta := &model.CursorMeta{Limit: q.Limit, HasMore: hasMore}
+if hasMore && len(rows) > 0 {
+    last := rows[len(rows)-1]
+    meta.NextCursor = helper.EncodeCursor(last.CreatedAt, last.ID)
+}
+ 
+return helper.SuccessCursor(c, "daftar student berhasil diambil", rows, meta)

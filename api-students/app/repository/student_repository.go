@@ -176,19 +176,19 @@ func (r *studentPostgresRepository) Create(
 	}
 
 	err = r.pool.QueryRow(
-        ctx,
-        `UPDATE students
+		ctx,
+		`UPDATE students
          SET owner_id = $1
          WHERE id = $1
          RETURNING owner_id`,
-        s.ID,
-    ).Scan(&s.OwnerID)
+		s.ID,
+	).Scan(&s.OwnerID)
 
-    if err != nil {
-        return model.Student{}, err
-    }
+	if err != nil {
+		return model.Student{}, err
+	}
 
-    return s, nil
+	return s, nil
 }
 
 func (r *studentPostgresRepository) Update(
@@ -252,4 +252,53 @@ func isUniqueViolation(err error) bool {
 		return pgErr.Code == "23505"
 	}
 	return false
+}
+
+func (r *studentPostgresRepository) FindAfterCursor(
+    ctx context.Context, q model.CursorQuery,
+) ([]model.Student, error) {
+    args := []any{}
+    where := " WHERE 1 = 1"
+ 
+    if q.Search != "" {
+        args = append(args, "%"+q.Search+"%")
+        where += fmt.Sprintf(" AND name ILIKE $%d", len(args))
+    }
+    if q.IsActive != nil {
+        args = append(args, *q.IsActive)
+        where += fmt.Sprintf(" AND is_active = $%d", len(args))
+    }
+    if q.After != nil {
+        args = append(args, q.After.CreatedAt, q.After.ID)
+        where += fmt.Sprintf(" AND (created_at, id) < ($%d, $%d)",
+            len(args)-1, len(args))
+    }
+ 
+    args = append(args, q.Limit+1)
+	query := fmt.Sprintf(
+		`SELECT id, nim, name, grade, is_active, created_at
+		 FROM students%s
+		 ORDER BY created_at DESC, id DESC
+		 LIMIT $%d`,
+		where, len(args),
+	)
+ 
+    rows, err := r.pool.Query(ctx, query, args...)
+    if err != nil {
+        return nil, fmt.Errorf("mengambil daftar student: %w", err)
+    }
+    defer rows.Close()
+ 
+    result := []model.Student{}
+    for rows.Next() {
+        u, err := scanStudent(rows)
+        if err != nil {
+            return nil, fmt.Errorf("membaca row student: %w", err)
+        }
+        result = append(result, u)
+    }
+    if err := rows.Err(); err != nil {
+        return nil, fmt.Errorf("membaca hasil query: %w", err)
+    }
+    return result, nil
 }

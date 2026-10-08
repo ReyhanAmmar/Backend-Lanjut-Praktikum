@@ -14,7 +14,7 @@ func TestCountTotalPages(t *testing.T) {
 		{11, 10, 2},
 		{137, 20, 7},
 	}
-	
+
 	for _, tc := range cases {
 		if got := CountTotalPages(tc.total, tc.limit); got != tc.want {
 			t.Errorf("total=%d limit=%d: harap %d, dapat %d",
@@ -70,7 +70,7 @@ func TestIsEmptyPatch(t *testing.T) {
 	if !IsEmptyPatch(model.PatchStudentRequest{}) {
 		t.Error("request tanpa field apa pun seharusnya dianggap kosong")
 	}
- 
+
 	grade := 90.0
 	if IsEmptyPatch(model.PatchStudentRequest{Grade: &grade}) {
 		t.Error("request berisi grade seharusnya tidak dianggap kosong")
