@@ -7,6 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"api-students/helper"
+	"api-students/app/model"
 	"api-students/middleware"
 	"api-students/route"
 )
@@ -49,22 +50,24 @@ func newErrorHandler(logger *slog.Logger) fiber.ErrorHandler {
         default:
             var fiberErr *fiber.Error
             if errors.As(err, &fiberErr) {
-                appErr = &helper.AppError{
-                    Status: fiberErr.Code, Code: "HTTP_ERROR",
-                    Message: fiberErr.Message,
+                if fiberErr.Code >= fiber.StatusInternalServerError {
+                    appErr = helper.Internal(err)
+                } else {
+                    appErr = &helper.AppError{Status: fiberErr.Code, Code: "HTTP_ERROR", Message: fiberErr.Message}
                 }
             } else {
                 appErr = helper.Internal(err)
             }
         }
  
-		if appErr.Status < fiber.StatusInternalServerError {
+		if appErr.Status >= fiber.StatusInternalServerError {
+            detail := appErr.Error()
             logger.Error("request_failed",
                 slog.String("request_id", requestID),
                 slog.String("path", c.Path()),
                 slog.String("code", appErr.Code),
                 slog.Int("status", appErr.Status),
-                slog.String("error", appErr.cause.Error()))
+                slog.String("error", detail))
         } else {
             logger.Warn("request_rejected",
                 slog.String("request_id", requestID),

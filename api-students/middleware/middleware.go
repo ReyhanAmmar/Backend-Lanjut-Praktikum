@@ -1,6 +1,7 @@
 package middleware
  
 import (
+	"errors"
 	"log/slog"
 	"strings"
 	"time"
@@ -39,6 +40,16 @@ func RequestLogger(logger *slog.Logger) fiber.Handler {
 		start := time.Now()
 
 		err := c.Next()
+		status := c.Response().StatusCode()
+		if err != nil {
+			var appErr *helper.AppError
+			var fiberErr *fiber.Error
+			switch {
+			case errors.As(err, &appErr): status = appErr.Status
+			case errors.As(err, &fiberErr): status = fiberErr.Code
+			default: status = fiber.StatusInternalServerError
+			}
+		}
 
 		requestID, _ := c.Locals("requestid").(string)
 
@@ -46,7 +57,7 @@ func RequestLogger(logger *slog.Logger) fiber.Handler {
 			slog.String("request_id", requestID),
 			slog.String("method", c.Method()),
 			slog.String("path", c.Path()),
-			slog.Int("status", c.Response().StatusCode()),
+			slog.Int("status", status),
 			slog.Duration("duration", time.Since(start)),
 			slog.String("ip", c.IP()),
 		}
@@ -73,8 +84,7 @@ func RequireJSON(c *fiber.Ctx) error {
 	if methodsWithBody[c.Method()] {
 		ct := c.Get("Content-Type")
 		if !strings.HasPrefix(ct, fiber.MIMEApplicationJSON) {
-			return helper.Fail(c, fiber.StatusUnsupportedMediaType,
-				"Content-Type harus application/json")
+			return helper.UnsupportedMediaType("Content-Type harus application/json")
 		}
 	}
 	return c.Next()
