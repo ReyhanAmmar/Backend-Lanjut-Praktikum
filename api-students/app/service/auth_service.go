@@ -95,6 +95,7 @@ func (s *AuthService) Login(c *fiber.Ctx) error {
  
     student, err := s.students.FindByNIM(ctx, strings.TrimSpace(req.NIM))
     if err != nil {
+        if !errors.Is(err, repository.ErrNotFound) { return helper.Internal(err) }
         helper.VerifyDummyPassword(req.Password)
         return helper.Unauthorized("NIM atau password salah")
     }
@@ -136,7 +137,11 @@ func (s *AuthService) Refresh(c *fiber.Ctx) error {
     }
  
     student, err := s.students.FindByID(ctx, stored.StudentID)
-    if err != nil || !student.IsActive {
+    if err != nil {
+        if !errors.Is(err, repository.ErrNotFound) { return helper.Internal(err) }
+        return helper.Unauthorized("akun tidak dapat dipakai")
+    }
+    if !student.IsActive {
         return helper.Unauthorized("akun tidak dapat dipakai")
     }
  
@@ -179,6 +184,7 @@ func (s *AuthService) Me(c *fiber.Ctx) error {
  
     student, err := s.students.FindByID(ctx, authStudent.StudentID)
     if err != nil {
+        if !errors.Is(err, repository.ErrNotFound) { return helper.Internal(err) }
         return helper.Unauthorized("student tidak ditemukan")
     }
  
