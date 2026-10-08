@@ -60,7 +60,7 @@ func Conflict(message string) *AppError {
  
 func Validation(fields map[string]string) *AppError {
     return &AppError{
-        Status: fiber.StatusUnprocessableEntity, Code: CodeValidation,
+        Status: fiber.StatusBadRequest, Code: CodeValidation,
         Message: "validasi gagal", Fields: fields,
     }
 }

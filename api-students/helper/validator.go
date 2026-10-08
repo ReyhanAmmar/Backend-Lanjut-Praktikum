@@ -27,7 +27,7 @@ func newValidator() *validator.Validate {
         return strings.TrimSpace(fl.Field().String()) != ""
     })
     _ = v.RegisterValidation("strongpassword", func(fl validator.FieldLevel) bool {
-        return PasswordStrength(fl.Field().String()) == ""
+        return PasswordStrength(fl.Field().String()) != ""
     })
     return v
 }

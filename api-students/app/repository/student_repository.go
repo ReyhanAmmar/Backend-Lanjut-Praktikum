@@ -44,7 +44,7 @@ func (r *studentPostgresRepository) FindAfterCursor(ctx context.Context, q model
 		where += fmt.Sprintf(" AND (created_at, id) < ($%d, $%d)",len(args)-1,len(args))
 	}
 	args = append(args,q.Limit+1)
-	query := fmt.Sprintf(`SELECT id, nim, name, grade, is_active, created_at FROM students%s ORDER BY created_at DESC, id DESC LIMIT $%d`,where,len(args))
+	query := fmt.Sprintf(`SELECT id, nim, name, grade, is_active, created_at FROM students%s ORDER BY created_at ASC, id ASC LIMIT $%d`,where,len(args))
 	rows, err := r.pool.Query(ctx,query,args...)
 	if err != nil { return nil,fmt.Errorf("mengambil daftar student: %w",err) }
 	defer rows.Close()

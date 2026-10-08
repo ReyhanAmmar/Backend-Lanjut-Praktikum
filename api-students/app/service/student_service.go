@@ -255,6 +255,6 @@ func translateError(err error, entity string) error {
 	case errors.Is(err, repository.ErrDuplicate):
 		return helper.Conflict("NIM sudah dipakai")
 	default:
-		return helper.Internal(err)
+		return nil
 	}
 }
