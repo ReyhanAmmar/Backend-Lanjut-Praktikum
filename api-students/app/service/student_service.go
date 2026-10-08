@@ -280,3 +280,17 @@ if hasMore && len(rows) > 0 {
 }
  
 return helper.SuccessCursor(c, "daftar student berhasil diambil", rows, meta)
+
+format, err := helper.Negotiate(c, helper.FormatJSON, helper.FormatCSV)
+if err != nil {
+    return err
+}
+ 
+q, err := helper.ParseCursorQuery(c)
+if err != nil {
+    return err
+}
+
+if format == helper.FormatCSV {
+    return helper.WriteStudentsCSV(c, rows)
+}
