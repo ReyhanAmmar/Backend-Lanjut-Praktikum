@@ -15,7 +15,7 @@ type Student struct {
 }
 
 type AssignRoleRequest struct {
-	Role string `json:"role"`
+	Role string `json:"role" validate:"required"`
 }
 
 type CreateStudentRequest struct {
@@ -32,9 +32,9 @@ type ReplaceStudentRequest struct {
 }
 
 type UpdateStudentRequest struct {
-	NIM      *string  `json:"nim"`
-	Name     *string  `json:"name"`
-	Grade    *float64 `json:"grade"`
+	NIM      *string  `json:"nim" validate:"omitnil,required,nim"`
+	Name     *string  `json:"name" validate:"omitnil,min=3,max=150,studentname"`
+	Grade    *float64 `json:"grade" validate:"omitnil,gte=0,lte=100"`
 	IsActive *bool    `json:"is_active"`
 }
 
@@ -83,8 +83,10 @@ type ErrorResponse struct {
     RequestID string            `json:"request_id,omitempty"`
 }
 
+type Cursor struct { CreatedAt time.Time; ID int }
+type CursorQuery struct { Limit int; Search string; IsActive *bool; After *Cursor }
 type CursorMeta struct {
-    Limit      int    `json:"limit"`
-    NextCursor string `json:"next_cursor,omitempty"`
-    HasMore    bool   `json:"has_more"`
+	Limit int `json:"limit"`
+	NextCursor string `json:"next_cursor,omitempty"`
+	HasMore bool `json:"has_more"`
 }

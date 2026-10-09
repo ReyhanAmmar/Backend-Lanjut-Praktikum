@@ -22,22 +22,22 @@ func NewStudentService(repo repository.StudentRepository, perms *helper.Permissi
 }
 
 func (s *StudentService) List(c *fiber.Ctx) error {
+	format, err := helper.Negotiate(c, helper.FormatJSON, helper.FormatCSV)
+	if err != nil { return err }
+	q, err := helper.ParseCursorQuery(c)
+	if err != nil { return err }
 	ctx, cancel := helper.RequestContext(c)
 	defer cancel()
-
-	q := helper.ParseListQuery(c)
-
-	students, total, err := s.repo.FindAll(ctx, q)
+	students, err := s.repo.FindAfterCursor(ctx, q)
 	if err != nil {
-		return translateError(err, "student")
+		return helper.Internal(err)
 	}
-
-	return helper.SuccessList(c, "daftar student berhasil diambil", students, &model.Meta{
-		Page:       q.Page,
-		Limit:      q.Limit,
-		Total:      total,
-		TotalPages: CountTotalPages(total, q.Limit),
-	})
+	hasMore := len(students) > q.Limit
+	if hasMore { students = students[:q.Limit] }
+	meta := &model.CursorMeta{Limit:q.Limit, HasMore:hasMore}
+	if hasMore { last := students[len(students)-1]; meta.NextCursor = helper.EncodeCursor(last.CreatedAt,last.ID) }
+	if format == helper.FormatCSV { return helper.WriteStudentsCSV(c, students) }
+	return helper.SuccessCursor(c, "daftar student berhasil diambil", students, meta)
 }
 
 func (s *StudentService) Get(c *fiber.Ctx) error {
@@ -53,14 +53,14 @@ func (s *StudentService) Get(c *fiber.Ctx) error {
 	if !valid {
 		return helper.BadRequest("id harus berupa angka positif")
 	}
-
-	if !CanAccessStudent(current, id, s.perms, "student:read:any") {
-		return helper.Forbidden("tidak berhak mengakses data student lain")
-	}
-
+	
 	student, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return translateError(err, "student")
+	}
+
+	if !CanAccessStudent(current,student.OwnerID,s.perms,"student:read:any") {
+		return helper.Forbidden("tidak berhak mengakses data student lain")
 	}
 
 	return helper.Success(c, fiber.StatusOK, "student ditemukan", student)
@@ -80,9 +80,9 @@ func (s *StudentService) Create(c *fiber.Ctx) error {
 		return helper.BadRequest("body harus berupa JSON yang valid")
 	}
 
-	if errs := helper.ValidateStruct(req); errs != nil {
-    return helper.Validation(errs)
-}
+	if errs := helper.ValidateStruct(req); len(errs) > 0 {
+		return helper.Validation(errs)
+	}
 
 	newStudent, err := s.repo.Create(ctx, model.Student{
 		NIM:      req.NIM,
@@ -127,7 +127,7 @@ func (s *StudentService) Replace(c *fiber.Ctx) error {
 		return helper.BadRequest("body harus berupa JSON yang valid")
 	}
 
-	if errs := ValidateReplace(req); len(errs) > 0 {
+	if errs := helper.ValidateStruct(req); len(errs) > 0 {
 		return helper.Validation(errs)
 	}
 
@@ -176,11 +176,10 @@ func (s *StudentService) Patch(c *fiber.Ctx) error {
 	if IsEmptyPatch(req) {
 		return helper.BadRequest("tidak ada field yang diubah")
 	}
-
-	updated, errs := ApplyPatch(student, req)
-	if len(errs) > 0 {
+	if errs := helper.ValidateStruct(req); len(errs) > 0 {
 		return helper.Validation(errs)
 	}
+	updated := ApplyPatch(student, req)
 
 	updated.OwnerID = student.OwnerID
 
@@ -237,6 +236,7 @@ func (s *StudentService) Delete(c *fiber.Ctx) error {
 		return helper.BadRequest("id harus berupa angka positif")
 	}
 
+	// Punya permission menghapus tidak berarti boleh menghapus akun sendiri
 	if current.StudentID == id {
 		return helper.Forbidden("tidak boleh menghapus akun sendiri")
 	}
@@ -249,45 +249,12 @@ func (s *StudentService) Delete(c *fiber.Ctx) error {
 }
 
 func translateError(err error, entity string) error {
-    switch {
-    case errors.Is(err, repository.ErrNotFound):
-        return helper.NotFound(entity + " tidak ditemukan")
-    case errors.Is(err, repository.ErrDuplicate):
-        return helper.Conflict("NIM sudah dipakai")
-    default:
-        return nil
-    }
-}
-
-rows, err := s.repo.FindAfterCursor(ctx, q)
-if err != nil {
-    return helper.Internal(err)
-}
-
-hasMore := len(rows) > q.Limit
-if hasMore {
-    rows = rows[:q.Limit]
-}
- 
-meta := &model.CursorMeta{Limit: q.Limit, HasMore: hasMore}
-if hasMore && len(rows) > 0 {
-    last := rows[len(rows)-1]
-    meta.NextCursor = helper.EncodeCursor(last.CreatedAt, last.ID)
-}
- 
-return helper.SuccessCursor(c, "daftar student berhasil diambil", rows, meta)
-
- 
-format, err := helper.Negotiate(c, helper.FormatJSON, helper.FormatCSV)
-if err != nil {
-    return err
-}
- 
-q, err := helper.ParseCursorQuery(c)
-if err != nil {
-    return err
-}
-
-if format == helper.FormatCSV {
-    return helper.WriteStudentsCSV(c, rows)
+	switch {
+	case errors.Is(err, repository.ErrNotFound):
+		return helper.NotFound(entity + " tidak ditemukan")
+	case errors.Is(err, repository.ErrDuplicate):
+		return helper.Conflict("NIM sudah dipakai")
+	default:
+		return helper.Internal(err)
+	}
 }

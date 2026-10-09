@@ -1,129 +1,77 @@
 package helper
- 
+
 import (
     "errors"
     "reflect"
     "strings"
     "unicode"
- 
     "github.com/go-playground/validator/v10"
 )
 
 var validate = newValidator()
- 
+
 func newValidator() *validator.Validate {
     v := validator.New()
- 
-	v.RegisterTagNameFunc(func(field reflect.StructField) string {
-        name := strings.SplitN(field.Tag.Get("json"), ",", 2)[0]
-        if name == "" || name == "-" {
-            return field.Name
-        }
+    v.RegisterTagNameFunc(func(f reflect.StructField) string {
+        name := strings.SplitN(f.Tag.Get("json"), ",", 2)[0]
+        if name == "" || name == "-" { return f.Name }
         return name
     })
-
-	_ = v.RegisterValidation("nospace", func(fl validator.FieldLevel) bool {
-        return !strings.ContainsAny(fl.Field().String(), " \t\n\r")
-    })
-    _ = v.RegisterValidation("username", func(fl validator.FieldLevel) bool {
-        for _, r := range fl.Field().String() {
-            if !unicode.IsLetter(r) && !unicode.IsDigit(r) &&
-                r != '.' && r != '_' {
-                return false
-            }
-        }
+    _ = v.RegisterValidation("nim", func(fl validator.FieldLevel) bool {
+        s := fl.Field().String()
+        if len(s) < 6 || len(s) > 20 { return false }
+        for _, r := range s { if !unicode.IsDigit(r) { return false } }
         return true
     })
-    _ = v.RegisterValidation("strongpassword", func(fl validator.FieldLevel) bool {
-        return PasswordStrength(fl.Field().String()) != ""
+    _ = v.RegisterValidation("studentname", func(fl validator.FieldLevel) bool {
+        return strings.TrimSpace(fl.Field().String()) != ""
     })
- 
+    _ = v.RegisterValidation("strongpassword", func(fl validator.FieldLevel) bool {
+        return PasswordStrength(fl.Field().String()) == ""
+    })
     return v
 }
 
 func ValidateStruct(s any) map[string]string {
     err := validate.Struct(s)
-    if err == nil {
-        return nil
-    }
- 
-    // Terjadi bila yang dikirim bukan struct — itu kesalahan programmer,
-    // bukan kesalahan pemakai API. Jangan diam-diam dianggap valid.
+    if err == nil { return nil }
     var invalid *validator.InvalidValidationError
-    if errors.As(err, &invalid) {
-        return map[string]string{"_": "objek yang divalidasi tidak sah"}
-    }
- 
+    if errors.As(err, &invalid) { return map[string]string{"_": "objek yang divalidasi tidak sah"} }
     var fieldErrors validator.ValidationErrors
-    if !errors.As(err, &fieldErrors) {
-        return map[string]string{"_": "validasi gagal"}
-    }
- 
-    result := make(map[string]string, len(fieldErrors))
+    if !errors.As(err, &fieldErrors) { return map[string]string{"_": "validasi gagal"} }
+    result := make(map[string]string)
     for _, fe := range fieldErrors {
-        if _, exists := result[fe.Field()]; !exists {
-            result[fe.Field()] = messageFor(fe)
-        }
+        if _, exists := result[fe.Field()]; !exists { result[fe.Field()] = messageFor(fe) }
     }
     return result
 }
 
 func messageFor(fe validator.FieldError) string {
-	switch fe.Tag() {
-	case "required":
-		return "wajib diisi"
-	case "nim":
-		return "NIM harus terdiri dari 6 sampai 20 digit"
-	case "studentname":
-		return "nama tidak boleh hanya berisi spasi"
-	case "min":
-		return "minimal " + fe.Param() + " karakter"
-	case "max":
-		return "maksimal " + fe.Param() + " karakter"
-	case "gte":
-		return "nilai minimal " + fe.Param()
-	case "lte":
-		return "nilai maksimal " + fe.Param()
-	case "strongpassword":
-		if value, ok := fe.Value().(string); ok {
-			return PasswordStrength(value)
-		}
-		return "password tidak memenuhi syarat"
-	default:
-		return "tidak memenuhi aturan " + fe.Tag()
-	}
+    switch fe.Tag() {
+    case "required": return "wajib diisi"
+    case "nim": return "NIM harus terdiri dari 6 sampai 20 digit"
+    case "studentname": return "nama tidak boleh hanya berisi spasi"
+    case "min": return "minimal " + fe.Param() + " karakter"
+    case "max": return "maksimal " + fe.Param() + " karakter"
+    case "gte": return "nilai minimal " + fe.Param()
+    case "lte": return "nilai maksimal " + fe.Param()
+    case "strongpassword":
+        if value, ok := fe.Value().(string); ok { return PasswordStrength(value) }
+        return "password tidak memenuhi syarat"
+    default: return "tidak memenuhi aturan " + fe.Tag()
+    }
 }
 
 func PasswordStrength(password string) string {
-	if len(password) < 8 {
-		return "minimal 8 karakter"
-	}
-	if len(password) > 72 {
-		return "maksimal 72 byte"
-	}
-
-	var hasLetter, hasDigit bool
-	for _, r := range password {
-		if unicode.IsLetter(r) {
-			hasLetter = true
-		}
-		if unicode.IsDigit(r) {
-			hasDigit = true
-		}
-	}
-	if !hasLetter || !hasDigit {
-		return "harus memuat huruf dan angka"
-	}
-
-	weak := map[string]bool{
-		"password1":   true,
-		"12345678":    true,
-		"qwerty123":   true,
-		"admin123":    true,
-		"password123": true,
-	}
-	if weak[strings.ToLower(password)] {
-		return "password terlalu umum"
-	}
-	return ""
+    if len(password) < 8 { return "minimal 8 karakter" }
+    if len(password) > 72 { return "maksimal 72 byte" }
+    var letter, digit bool
+    for _, r := range password {
+        if unicode.IsLetter(r) { letter = true }
+        if unicode.IsDigit(r) { digit = true }
+    }
+    if !letter || !digit { return "harus memuat huruf dan angka" }
+    weak := map[string]bool{"password1":true,"12345678":true,"qwerty123":true,"admin123":true,"password123":true}
+    if weak[strings.ToLower(password)] { return "password terlalu umum" }
+    return ""
 }

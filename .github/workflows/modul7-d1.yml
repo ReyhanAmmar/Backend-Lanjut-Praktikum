@@ -1,0 +1,21 @@
+name: Modul 7 D.1
+on:
+  push:
+    branches: [modul7-d1-perbaikan]
+  pull_request:
+    branches: [main]
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: api-students/go.mod
+          cache-dependency-path: api-students/go.sum
+      - name: Build
+        working-directory: api-students
+        run: go build ./...
+      - name: Test
+        working-directory: api-students
+        run: go test ./...

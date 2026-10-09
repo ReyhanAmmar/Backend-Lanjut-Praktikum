@@ -1,8 +1,8 @@
 package helper
 
 import (
-	"api-students/app/model"
 	"github.com/gofiber/fiber/v2"
+	"api-students/app/model"
 )
 
 func Success(c *fiber.Ctx, status int, message string, data any) error {
@@ -17,6 +17,10 @@ func SuccessList(c *fiber.Ctx, message string, data any, meta *model.Meta) error
 	})
 }
 
+func SuccessCursor(c *fiber.Ctx, message string, data any, meta *model.CursorMeta) error {
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"success":true,"message":message,"data":data,"meta":meta})
+}
+
 func Created(c *fiber.Ctx, message string, data any, location string) error {
 	c.Set("Location", location)
 	return c.Status(fiber.StatusCreated).JSON(model.WebResponse{
@@ -27,3 +31,4 @@ func Created(c *fiber.Ctx, message string, data any, location string) error {
 func NoContent(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
+ 

@@ -1,11 +1,11 @@
 package helper
- 
+
 import (
     "fmt"
  
     "github.com/gofiber/fiber/v2"
 )
-
+ 
 const (
     CodeValidation       = "VALIDATION_ERROR"
     CodeBadRequest       = "BAD_REQUEST"
@@ -17,6 +17,7 @@ const (
     CodeNotAcceptable    = "NOT_ACCEPTABLE"
     CodeTooManyRequests  = "TOO_MANY_REQUESTS"
     CodeInternal         = "INTERNAL_ERROR"
+    CodeServiceUnavailable = "SERVICE_UNAVAILABLE"
 )
 
 type AppError struct {
@@ -27,15 +28,15 @@ type AppError struct {
     cause   error             
 }
 
-
 func (e *AppError) Error() string {
-	if e.cause != nil {
-		return fmt.Sprintf("%s: %s: %v", e.Code, e.Message, e.cause)
-	}
-	return fmt.Sprintf("%s: %s", e.Code, e.Message)
+    if e.cause != nil {
+        return fmt.Sprintf("%s: %s: %v", e.Code, e.Message, e.cause)
+    }
+    return fmt.Sprintf("%s: %s", e.Code, e.Message)
 }
 
 func (e *AppError) Unwrap() error { return e.cause }
+func (e *AppError) Cause() error { return e.cause }
  
 func BadRequest(message string) *AppError {
     return &AppError{Status: fiber.StatusBadRequest, Code: CodeBadRequest, Message: message}
@@ -59,9 +60,18 @@ func Conflict(message string) *AppError {
  
 func Validation(fields map[string]string) *AppError {
     return &AppError{
-        Status: fiber.StatusBadRequest, Code: CodeValidation,
+        Status: fiber.StatusUnprocessableEntity, Code: CodeValidation,
         Message: "validasi gagal", Fields: fields,
     }
+}
+func UnsupportedMediaType(message string) *AppError {
+    return &AppError{Status: fiber.StatusUnsupportedMediaType, Code: CodeUnsupportedMedia, Message: message}
+}
+func TooManyRequests(message string) *AppError {
+    return &AppError{Status: fiber.StatusTooManyRequests, Code: CodeTooManyRequests, Message: message}
+}
+func ServiceUnavailable(message string, cause error) *AppError {
+    return &AppError{Status: fiber.StatusServiceUnavailable, Code: CodeServiceUnavailable, Message: message, cause: cause}
 }
  
 func NotAcceptable(message string) *AppError {
