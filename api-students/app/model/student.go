@@ -39,7 +39,7 @@ type UpdateStudentRequest struct {
 }
 
 type PatchStudentRequest struct {
-	NIM      *string  `json:"nim" validate:"omitnil,required,nim"`
+	NIM      string   `json:"nim,omitempty" validate:"omitnil,required,nim"`
 	Name     *string  `json:"name" validate:"omitnil,min=3,max=150,studentname"`
 	Grade    *float64 `json:"grade" validate:"omitnil,gte=0,lte=100"`
 	IsActive *bool    `json:"is_active"`

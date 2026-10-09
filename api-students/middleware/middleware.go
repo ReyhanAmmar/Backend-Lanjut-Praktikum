@@ -1,7 +1,6 @@
 package middleware
  
 import (
-	"errors"
 	"log/slog"
 	"strings"
 	"time"
@@ -40,16 +39,6 @@ func RequestLogger(logger *slog.Logger) fiber.Handler {
 		start := time.Now()
 
 		err := c.Next()
-		status := c.Response().StatusCode()
-		if err != nil {
-			var appErr *helper.AppError
-			var fiberErr *fiber.Error
-			switch {
-			case errors.As(err, &appErr): status = appErr.Status
-			case errors.As(err, &fiberErr): status = fiberErr.Code
-			default: status = fiber.StatusInternalServerError
-			}
-		}
 
 		requestID, _ := c.Locals("requestid").(string)
 
@@ -57,7 +46,7 @@ func RequestLogger(logger *slog.Logger) fiber.Handler {
 			slog.String("request_id", requestID),
 			slog.String("method", c.Method()),
 			slog.String("path", c.Path()),
-			slog.Int("status", status),
+			slog.Int("status", c.Response().StatusCode()),
 			slog.Duration("duration", time.Since(start)),
 			slog.String("ip", c.IP()),
 		}

@@ -1,0 +1,16 @@
+name: Modul 7 D.1 diagnosis mentah
+on:
+  push:
+    branches: [modul7-mentah-api-students]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: api-students/go.mod
+          cache-dependency-path: api-students/go.sum
+      - name: Build mentah
+        working-directory: api-students
+        run: go build ./...

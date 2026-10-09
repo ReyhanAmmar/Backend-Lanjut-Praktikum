@@ -25,7 +25,6 @@ func WriteStudentsCSV(c *fiber.Ctx, students []model.Student) error {
     for _, s := range students {
         if err := w.Write([]string{strconv.Itoa(s.ID),s.NIM,s.Name,strconv.FormatFloat(s.Grade,'f',2,64),strconv.FormatBool(s.IsActive),s.CreatedAt.UTC().Format("2006-01-02T15:04:05Z")}); err != nil { return Internal(err) }
     }
-    w.Flush()
     if err := w.Error(); err != nil { return Internal(err) }
     c.Set(fiber.HeaderContentType,FormatCSV+"; charset=utf-8")
     c.Set(fiber.HeaderContentDisposition,`attachment; filename="students.csv"`)
