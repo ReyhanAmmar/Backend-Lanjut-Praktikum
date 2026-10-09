@@ -17,8 +17,8 @@ const (
 
 func Negotiate(c *fiber.Ctx, offered ...string) (string, error) {
     accept := strings.TrimSpace(c.Get(fiber.HeaderAccept))
-
-	    if accept == "" {
+ 
+    if accept == "" {
         return offered[0], nil
     }
  
@@ -32,24 +32,23 @@ func Negotiate(c *fiber.Ctx, offered ...string) (string, error) {
     return chosen, nil
 }
 
-func WriteStudentCSV(c *fiber.Ctx, students []model.Student) error {
+func WriteUsersCSV(c *fiber.Ctx, users []model.User) error {
     c.Set(fiber.HeaderContentType, FormatCSV+"; charset=utf-8")
-    c.Set(fiber.HeaderContentDisposition, `attachment; filename="students.csv"`)
+    c.Set(fiber.HeaderContentDisposition, `attachment; filename="users.csv"`)
  
     var buffer strings.Builder
     writer := csv.NewWriter(&buffer)
  
-    header := []string{"id", "nim", "nama", "grade", "is_active", "created_at"}
+    header := []string{"id", "username", "email", "role", "is_active", "created_at"}
     if err := writer.Write(header); err != nil {
         return Internal(err)
     }
  
-    for _, s := range students {
+    for _, u := range users {
         row := []string{
-            strconv.Itoa(s.ID), s.NIM, s.Name, s.Role,
-            strconv.FormatFloat(float64(s.Grade), 'f', 1, 64),
-            strconv.FormatBool(s.IsActive),
-            s.CreatedAt.UTC().Format("2006-01-02T15:04:05Z"),
+            strconv.Itoa(u.ID), u.Username, u.Email, u.Role,
+            strconv.FormatBool(u.IsActive),
+            u.CreatedAt.UTC().Format("2006-01-02T15:04:05Z"),
         }
         if err := writer.Write(row); err != nil {
             return Internal(err)

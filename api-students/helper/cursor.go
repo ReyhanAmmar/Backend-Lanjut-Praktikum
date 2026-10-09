@@ -47,3 +47,4 @@ func DecodeCursor(encoded string) (model.Cursor, error) {
  
     return model.Cursor{CreatedAt: time.Unix(0, nanos).UTC(), ID: id}, nil
 }
+

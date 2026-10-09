@@ -248,19 +248,15 @@ func (s *StudentService) Delete(c *fiber.Ctx) error {
 	return helper.NoContent(c)
 }
 
-func translateError(err error, entity ...string) error {
-	ent := "student"
-	if len(entity) > 0 && entity[0] != "" {
-		ent = entity[0]
-	}
-	switch {
-	case errors.Is(err, repository.ErrNotFound):
-		return helper.NotFound(ent + " tidak ditemukan")
-	case errors.Is(err, repository.ErrDuplicate):
-		return helper.Conflict("NIM sudah dipakai")
-	default:
-		return helper.Internal(err)
-	}
+func translateError(err error, entity string) error {
+    switch {
+    case errors.Is(err, repository.ErrNotFound):
+        return helper.NotFound(entity + " tidak ditemukan")
+    case errors.Is(err, repository.ErrDuplicate):
+        return helper.Conflict("NIM sudah dipakai")
+    default:
+        return nil
+    }
 }
 
 rows, err := s.repo.FindAfterCursor(ctx, q)
@@ -281,6 +277,7 @@ if hasMore && len(rows) > 0 {
  
 return helper.SuccessCursor(c, "daftar student berhasil diambil", rows, meta)
 
+ 
 format, err := helper.Negotiate(c, helper.FormatJSON, helper.FormatCSV)
 if err != nil {
     return err

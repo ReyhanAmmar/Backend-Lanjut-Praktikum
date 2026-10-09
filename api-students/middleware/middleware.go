@@ -37,9 +37,7 @@ func corsPolicy(allowedOrigins string) fiber.Handler {
 func RequestLogger(logger *slog.Logger) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		start := time.Now()
-
 		err := c.Next()
-
 		requestID, _ := c.Locals("requestid").(string)
 
 		attrs := []any{

@@ -10,65 +10,62 @@ import (
 )
 
 var validate = newValidator()
-
+ 
 func newValidator() *validator.Validate {
-	v := validator.New()
-
+    v := validator.New()
+ 
 	v.RegisterTagNameFunc(func(field reflect.StructField) string {
-		name := strings.SplitN(field.Tag.Get("json"), ",", 2)[0]
-		if name == "" || name == "-" {
-			return field.Name
-		}
-		return name
-	})
+        name := strings.SplitN(field.Tag.Get("json"), ",", 2)[0]
+        if name == "" || name == "-" {
+            return field.Name
+        }
+        return name
+    })
 
-	_ = v.RegisterValidation("nim", func(fl validator.FieldLevel) bool {
-		nim := fl.Field().String()
-		if len(nim) < 6 || len(nim) > 20 {
-			return false
-		}
-		for _, r := range nim {
-			if !unicode.IsDigit(r) {
-				return false
-			}
-		}
-		return true
-	})
-
-	_ = v.RegisterValidation("studentname", func(fl validator.FieldLevel) bool {
-		return strings.TrimSpace(fl.Field().String()) != ""
-	})
-
-	_ = v.RegisterValidation("strongpassword", func(fl validator.FieldLevel) bool {
-		return PasswordStrength(fl.Field().String()) == ""
-	})
-
-	return v
+	_ = v.RegisterValidation("nospace", func(fl validator.FieldLevel) bool {
+        return !strings.ContainsAny(fl.Field().String(), " \t\n\r")
+    })
+    _ = v.RegisterValidation("username", func(fl validator.FieldLevel) bool {
+        for _, r := range fl.Field().String() {
+            if !unicode.IsLetter(r) && !unicode.IsDigit(r) &&
+                r != '.' && r != '_' {
+                return false
+            }
+        }
+        return true
+    })
+    _ = v.RegisterValidation("strongpassword", func(fl validator.FieldLevel) bool {
+        return PasswordStrength(fl.Field().String()) != ""
+    })
+ 
+    return v
 }
 
 func ValidateStruct(s any) map[string]string {
-	err := validate.Struct(s)
-	if err == nil {
-		return nil
-	}
-
-	var invalid *validator.InvalidValidationError
-	if errors.As(err, &invalid) {
-		return map[string]string{"_": "objek yang divalidasi tidak sah"}
-	}
-
-	var fieldErrors validator.ValidationErrors
-	if !errors.As(err, &fieldErrors) {
-		return map[string]string{"_": "validasi gagal"}
-	}
-
-	result := make(map[string]string, len(fieldErrors))
-	for _, fe := range fieldErrors {
-		if _, exists := result[fe.Field()]; !exists {
-			result[fe.Field()] = messageFor(fe)
-		}
-	}
-	return result
+    err := validate.Struct(s)
+    if err == nil {
+        return nil
+    }
+ 
+    // Terjadi bila yang dikirim bukan struct — itu kesalahan programmer,
+    // bukan kesalahan pemakai API. Jangan diam-diam dianggap valid.
+    var invalid *validator.InvalidValidationError
+    if errors.As(err, &invalid) {
+        return map[string]string{"_": "objek yang divalidasi tidak sah"}
+    }
+ 
+    var fieldErrors validator.ValidationErrors
+    if !errors.As(err, &fieldErrors) {
+        return map[string]string{"_": "validasi gagal"}
+    }
+ 
+    result := make(map[string]string, len(fieldErrors))
+    for _, fe := range fieldErrors {
+        if _, exists := result[fe.Field()]; !exists {
+            result[fe.Field()] = messageFor(fe)
+        }
+    }
+    return result
 }
 
 func messageFor(fe validator.FieldError) string {
