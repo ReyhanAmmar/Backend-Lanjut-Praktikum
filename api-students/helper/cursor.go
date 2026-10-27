@@ -47,3 +47,37 @@ func DecodeCursor(encoded string) (model.Cursor, error) {
  
     return model.Cursor{CreatedAt: time.Unix(0, nanos).UTC(), ID: id}, nil
 }
+
+func ParseCursorQuery(c *fiber.Ctx) (model.CursorQuery, error) {
+	limit := c.QueryInt("limit", 10)
+	if limit < 1 {
+		limit = 10
+	}
+	if limit > 50 {
+		limit = 50
+	}
+
+	q := model.CursorQuery{
+		Limit:  limit,
+		Search: strings.TrimSpace(c.Query("search")),
+	}
+
+	if raw := c.Query("is_active"); raw != "" {
+		v, err := strconv.ParseBool(raw)
+		if err != nil {
+			return q, BadRequest("is_active harus berupa boolean")
+		}
+		q.IsActive = &v
+	}
+
+	if cursorStr := c.Query("cursor"); cursorStr != "" {
+		cur, err := DecodeCursor(cursorStr)
+		if err != nil {
+			return q, BadRequest("cursor tidak valid")
+		}
+		q.After = &cur
+	}
+
+	return q, nil
+}
+

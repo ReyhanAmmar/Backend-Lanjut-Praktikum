@@ -25,19 +25,37 @@ func (s *StudentService) List(c *fiber.Ctx) error {
 	ctx, cancel := helper.RequestContext(c)
 	defer cancel()
 
-	q := helper.ParseListQuery(c)
-
-	students, total, err := s.repo.FindAll(ctx, q)
+	format, err := helper.Negotiate(c, helper.FormatJSON, helper.FormatCSV)
 	if err != nil {
-		return translateError(err, "student")
+		return err
 	}
 
-	return helper.SuccessList(c, "daftar student berhasil diambil", students, &model.Meta{
-		Page:       q.Page,
-		Limit:      q.Limit,
-		Total:      total,
-		TotalPages: CountTotalPages(total, q.Limit),
-	})
+	q, err := helper.ParseCursorQuery(c)
+	if err != nil {
+		return err
+	}
+
+	rows, err := s.repo.FindAfterCursor(ctx, q)
+	if err != nil {
+		return helper.Internal(err)
+	}
+
+	if format == helper.FormatCSV {
+		return helper.WriteStudentCSV(c, rows)
+	}
+
+	hasMore := len(rows) > q.Limit
+	if hasMore {
+		rows = rows[:q.Limit]
+	}
+
+	meta := &model.CursorMeta{Limit: q.Limit, HasMore: hasMore}
+	if hasMore && len(rows) > 0 {
+		last := rows[len(rows)-1]
+		meta.NextCursor = helper.EncodeCursor(last.CreatedAt, last.ID)
+	}
+
+	return helper.SuccessCursor(c, "daftar student berhasil diambil", rows, meta)
 }
 
 func (s *StudentService) Get(c *fiber.Ctx) error {
@@ -127,7 +145,7 @@ func (s *StudentService) Replace(c *fiber.Ctx) error {
 		return helper.BadRequest("body harus berupa JSON yang valid")
 	}
 
-	if errs := ValidateReplace(req); len(errs) > 0 {
+	if errs := helper.ValidateStruct(req); errs != nil {
 		return helper.Validation(errs)
 	}
 
@@ -177,10 +195,11 @@ func (s *StudentService) Patch(c *fiber.Ctx) error {
 		return helper.BadRequest("tidak ada field yang diubah")
 	}
 
-	updated, errs := ApplyPatch(student, req)
-	if len(errs) > 0 {
+	if errs := helper.ValidateStruct(req); errs != nil {
 		return helper.Validation(errs)
 	}
+
+	updated := ApplyPatch(student, req)
 
 	updated.OwnerID = student.OwnerID
 
@@ -259,38 +278,7 @@ func translateError(err error, entity ...string) error {
 	case errors.Is(err, repository.ErrDuplicate):
 		return helper.Conflict("NIM sudah dipakai")
 	default:
-		return helper.Internal(err)
+		return helper.Internal(err) 
 	}
 }
 
-rows, err := s.repo.FindAfterCursor(ctx, q)
-if err != nil {
-    return helper.Internal(err)
-}
-
-hasMore := len(rows) > q.Limit
-if hasMore {
-    rows = rows[:q.Limit]
-}
- 
-meta := &model.CursorMeta{Limit: q.Limit, HasMore: hasMore}
-if hasMore && len(rows) > 0 {
-    last := rows[len(rows)-1]
-    meta.NextCursor = helper.EncodeCursor(last.CreatedAt, last.ID)
-}
- 
-return helper.SuccessCursor(c, "daftar student berhasil diambil", rows, meta)
-
-format, err := helper.Negotiate(c, helper.FormatJSON, helper.FormatCSV)
-if err != nil {
-    return err
-}
- 
-q, err := helper.ParseCursorQuery(c)
-if err != nil {
-    return err
-}
-
-if format == helper.FormatCSV {
-    return helper.WriteStudentsCSV(c, rows)
-}

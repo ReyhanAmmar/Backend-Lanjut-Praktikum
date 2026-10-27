@@ -52,7 +52,7 @@ func (s *AuthService) Register(c *fiber.Ctx) error {
 	req.NIM = strings.TrimSpace(req.NIM)
 	req.Name = strings.TrimSpace(req.Name)
 
-	if errs := ValidateRegister(req); len(errs) > 0 {
+	if errs := helper.ValidateStruct(req); errs != nil {
 		return helper.Validation(errs)
 	}
 

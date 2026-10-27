@@ -59,7 +59,7 @@ func newErrorHandler(logger *slog.Logger) fiber.ErrorHandler {
 			}
 		}
 
-		if appErr.Status >= 500 {
+		if appErr.Status >= fiber.StatusInternalServerError {
 			logger.Error("request_failed",
 				slog.String("request_id", requestID),
 				slog.String("path", c.Path()),
@@ -75,6 +75,7 @@ func newErrorHandler(logger *slog.Logger) fiber.ErrorHandler {
 				slog.Int("status", appErr.Status),
 			)
 		}
+
 
 		return c.Status(appErr.Status).JSON(model.ErrorResponse{
 			Success:   false,

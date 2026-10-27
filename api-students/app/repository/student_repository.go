@@ -25,7 +25,10 @@ type StudentRepository interface {
 	Update(ctx context.Context, s model.Student) (model.Student, error)
 	UpdateRole(ctx context.Context, id int, role string) (model.Student, error)
 	Delete(ctx context.Context, id int) error
+	FindAfterCursor(ctx context.Context, q model.CursorQuery) ([]model.Student, error)
 }
+
+const studentColumns = "id, nim, name, grade, is_active, created_at"
 
 var kolomUrut = map[string]string{
 	"id":         "id",
@@ -255,50 +258,53 @@ func isUniqueViolation(err error) bool {
 }
 
 func (r *studentPostgresRepository) FindAfterCursor(
-    ctx context.Context, q model.CursorQuery,
+	ctx context.Context, q model.CursorQuery,
 ) ([]model.Student, error) {
-    args := []any{}
-    where := " WHERE 1 = 1"
- 
-    if q.Search != "" {
-        args = append(args, "%"+q.Search+"%")
-        where += fmt.Sprintf(" AND name ILIKE $%d", len(args))
-    }
-    if q.IsActive != nil {
-        args = append(args, *q.IsActive)
-        where += fmt.Sprintf(" AND is_active = $%d", len(args))
-    }
-    if q.After != nil {
-        args = append(args, q.After.CreatedAt, q.After.ID)
-        where += fmt.Sprintf(" AND (created_at, id) < ($%d, $%d)",
-            len(args)-1, len(args))
-    }
- 
-    args = append(args, q.Limit+1)
+	args := []any{}
+	where := " WHERE 1 = 1"
+
+	if q.Search != "" {
+		args = append(args, "%"+q.Search+"%")
+		where += fmt.Sprintf(" AND name ILIKE $%d", len(args))
+	}
+	if q.IsActive != nil {
+		args = append(args, *q.IsActive)
+		where += fmt.Sprintf(" AND is_active = $%d", len(args))
+	}
+	if q.After != nil {
+		args = append(args, q.After.CreatedAt, q.After.ID)
+		where += fmt.Sprintf(" AND (created_at, id) < ($%d, $%d)",
+			len(args)-1, len(args))
+	}
+
+	args = append(args, q.Limit+1)
 	query := fmt.Sprintf(
-		`SELECT id, nim, name, grade, is_active, created_at
-		 FROM students%s
-		 ORDER BY created_at DESC, id DESC
-		 LIMIT $%d`,
-		where, len(args),
+		"SELECT %s FROM students%s ORDER BY created_at DESC, id DESC LIMIT $%d",
+		studentColumns, where, len(args),
 	)
- 
-    rows, err := r.pool.Query(ctx, query, args...)
-    if err != nil {
-        return nil, fmt.Errorf("mengambil daftar student: %w", err)
-    }
-    defer rows.Close()
- 
-    result := []model.Student{}
-    for rows.Next() {
-        u, err := scanStudent(rows)
-        if err != nil {
-            return nil, fmt.Errorf("membaca row student: %w", err)
-        }
-        result = append(result, u)
-    }
-    if err := rows.Err(); err != nil {
-        return nil, fmt.Errorf("membaca hasil query: %w", err)
-    }
-    return result, nil
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("mengambil daftar student: %w", err)
+	}
+	defer rows.Close()
+
+	result := []model.Student{}
+	for rows.Next() {
+		u, err := scanStudent(rows)
+		if err != nil {
+			return nil, fmt.Errorf("membaca row student: %w", err)
+		}
+		result = append(result, u)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("membaca hasil query: %w", err)
+	}
+	return result, nil
+}
+
+func scanStudent(rows pgx.Rows) (model.Student, error) {
+	var s model.Student
+	err := rows.Scan(&s.ID, &s.NIM, &s.Name, &s.Grade, &s.IsActive, &s.CreatedAt)
+	return s, err
 }

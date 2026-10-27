@@ -84,3 +84,11 @@ func isValidNIM(nim string) bool {
 	}
 	return true
 }
+
+func validateGradeRange(grade float64) string {
+	if grade < 0 || grade > 100 {
+		return "nilai harus antara 0 dan 100"
+	}
+	return ""
+}
+
