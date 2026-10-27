@@ -45,6 +45,7 @@ func main() {
 	studentRepository := repository.NewStudentRepository(pool)
 	tokenRepository := repository.NewTokenRepository(pool)
 	roleRepository := repository.NewRoleRepository(pool)
+	courseRepository := repository.NewCourseRepository(pool)
 
 	rawPermissions, err := roleRepository.LoadPermissions(context.Background())
 	if err != nil {
@@ -60,6 +61,7 @@ func main() {
 		studentRepository, tokenRepository, jwtManager, permissions,
 		time.Duration(config.GetEnvInt("JWT_REFRESH_TTL_DAYS", 7))*24*time.Hour,
 	)
+	courseService := service.NewCourseService(courseRepository)
 
 	app := config.NewApp(logger, route.Dependencies{
 		Pool:           pool,
@@ -67,6 +69,7 @@ func main() {
 		Permissions:    permissions,
 		StudentService: studentService,
 		AuthService:    authService,
+		CourseService: courseService,
 	})
 
 	port := config.GetEnv("APP_PORT", "3000")
@@ -93,4 +96,6 @@ func main() {
 			slog.String("error", err.Error()))
 	}
 	logger.Info("server berhenti dengan rapi")
+
+
 }

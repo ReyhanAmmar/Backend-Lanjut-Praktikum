@@ -18,6 +18,7 @@ type Dependencies struct {
 	Permissions    *helper.PermissionSet
 	StudentService *service.StudentService
 	AuthService    *service.AuthService
+	CourseService *service.CourseService
 }
 
 func Register(app *fiber.App, deps Dependencies) {
@@ -46,6 +47,14 @@ func Register(app *fiber.App, deps Dependencies) {
 	users.Get("/:id", deps.StudentService.Get)
 	users.Put("/:id", deps.StudentService.Replace)
 	users.Patch("/:id", deps.StudentService.Patch)
+
+	courses := api.Group("/courses",
+		middleware.RequireJSON,
+		middleware.RequireAuth(deps.JWT))
+	
+	courses.Get("/", deps.CourseService.List)
+	courses.Get("/mine", deps.CourseService.Mine)
+	courses.Get("/:id", deps.CourseService.Get)
 
 }
 
