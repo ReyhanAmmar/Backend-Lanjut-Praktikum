@@ -23,6 +23,10 @@ func NewCourseRepository(db DBTX) CourseRepository {
 	return &coursePostgresRepository{db: db}
 }
 
+func (r *coursePostgresRepository) WithTx(tx DBTX) CourseRepository {
+	return &coursePostgresRepository{db: tx}
+}
+
 func scanCourse(row pgx.Row) (model.Course, error) {
 	var c model.Course
 	err := row.Scan(&c.ID, &c.Code, &c.Name, &c.Credits, &c.Quota,
