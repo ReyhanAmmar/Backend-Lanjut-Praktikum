@@ -13,6 +13,8 @@ type CourseRepository interface {
 	FindAll(ctx context.Context) ([]model.Course, error)
 	FindByID(ctx context.Context, id int) (model.Course, error)
 	FindByStudent(ctx context.Context, studentID int) ([]model.Course, error)
+	InsertEnrollment(ctx context.Context, courseID, studentID int) error
+	SetEnrolledCount(ctx context.Context, courseID, count int) error
 }
 
 const courseColumns = `id, code, name, credits, quota, enrolled_count, version, created_at`
@@ -75,4 +77,27 @@ func (r *coursePostgresRepository) FindByStudent(ctx context.Context, studentID 
 		 JOIN enrollments e ON e.course_id = c.id
 		 WHERE e.student_id = $1
 		 ORDER BY c.code`, studentID))
+}
+
+var ErrCourseFull = errors.New("kuota kelas sudah penuh")
+
+func (r *coursePostgresRepository) InsertEnrollment(ctx context.Context, courseID, studentID int) error {
+	_, err := r.db.Exec(ctx,
+		"INSERT INTO enrollments (course_id, student_id) VALUES ($1, $2)", courseID, studentID)
+	if err != nil {
+		if pgErrorCode(err) == codeUniqueViolation {
+			return ErrDuplicate
+		}
+		return fmt.Errorf("mencatat pendaftaran: %w", err)
+	}
+	return nil
+}
+
+func (r *coursePostgresRepository) SetEnrolledCount(ctx context.Context, courseID, count int) error {
+	_, err := r.db.Exec(ctx,
+		"UPDATE courses SET enrolled_count = $1 WHERE id = $2", count, courseID)
+	if err != nil {
+		return fmt.Errorf("menyimpan jumlah peserta: %w", err)
+	}
+	return nil
 }
