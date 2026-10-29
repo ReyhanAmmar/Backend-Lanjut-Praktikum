@@ -46,6 +46,8 @@ func main() {
 	tokenRepository := repository.NewTokenRepository(pool)
 	roleRepository := repository.NewRoleRepository(pool)
 	courseRepository := repository.NewCourseRepository(pool)
+	txManager := repository.NewTxManager(pool)
+	courseService := service.NewCourseService(courseRepository, txManager)
 
 	rawPermissions, err := roleRepository.LoadPermissions(context.Background())
 	if err != nil {
