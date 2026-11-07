@@ -170,3 +170,73 @@ func (s *CourseService) Drop(c *fiber.Ctx) error {
 	}
 	return helper.NoContent(c)
 }
+
+func (s *CourseService) Swap(c *fiber.Ctx) error {
+	ctx, cancel := helper.RequestContext(c)
+	defer cancel()
+
+	current, ok := helper.CurrentStudent(c)
+	if !ok {
+		return helper.Unauthorized("belum terautentikasi")
+	}
+
+	var req model.SwapRequest
+	if err := c.BodyParser(&req); err != nil {
+		return helper.BadRequest("body harus berupa JSON yang valid")
+	}
+	if errs := helper.ValidateStruct(req); errs != nil {
+		return helper.Validation(errs)
+	}
+	if req.FromCourseID == req.ToCourseID {
+		return helper.Validation(map[string]string{
+			"to_course_id": "tidak boleh sama dengan from_course_id",
+		})
+	}
+
+	var joined model.Course
+
+	err := s.tx.WithTx(ctx, func(tx repository.DBTX) error {
+		repo := s.courses.WithTx(tx)
+
+		if err := repo.LockStudent(ctx, current.StudentID); err != nil {
+			return err
+		}
+
+		if err := repo.LockCourses(ctx, req.FromCourseID, req.ToCourseID); err != nil {
+			return err
+		}
+
+		from, err := repo.FindByID(ctx, req.FromCourseID)
+		if err != nil {
+			return err
+		}
+		to, err := repo.FindByID(ctx, req.ToCourseID)
+		if err != nil {
+			return err
+		}
+		taken, err := repo.SumCredits(ctx, current.StudentID)
+		if err != nil {
+			return err
+		}
+		if CreditsAfterSwap(taken, from.Credits, to.Credits) > MaxCreditsPerSemester {
+			return errCreditLimit
+		}
+		
+		if err := repo.DeleteEnrollment(ctx, req.FromCourseID, current.StudentID); err != nil {
+			return err
+		}
+		if _, err := s.courses.DecrementEnrolled(ctx, req.FromCourseID); err != nil {
+			return err
+		}
+		joined, err = repo.IncrementEnrolled(ctx, req.ToCourseID)
+		if err != nil {
+			return err
+		}
+		return repo.InsertEnrollment(ctx, req.ToCourseID, current.StudentID)
+	})
+	if err != nil {
+		return translateCourseError(err)
+	}
+	
+	return helper.Success(c, fiber.StatusOK, "berhasil pindah kelas", joined)
+}

@@ -12,3 +12,8 @@ type Course struct {
 	Version       int       `json:"version"`
 	CreatedAt     time.Time `json:"created_at"`
 }
+
+type SwapRequest struct {
+	FromCourseID int `json:"from_course_id" validate:"required,min=1"`
+	ToCourseID   int `json:"to_course_id" validate:"required,min=1"`
+}

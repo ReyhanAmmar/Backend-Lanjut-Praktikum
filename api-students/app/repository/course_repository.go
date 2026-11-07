@@ -164,3 +164,24 @@ func (r *coursePostgresRepository) DeleteEnrollment(ctx context.Context, courseI
 	}
 	return nil
 }
+
+func (r *coursePostgresRepository) LockCourses(ctx context.Context, ids ...int) error {
+	rows, err := r.db.Query(ctx,
+		"SELECT id FROM courses WHERE id = ANY($1) ORDER BY id FOR UPDATE", ids)
+	if err != nil {
+		return fmt.Errorf("mengunci kelas: %w", err)
+	}
+	defer rows.Close()
+	
+	found := 0
+	for rows.Next() {
+		found++
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("mengunci kelas: %w", err)
+	}
+	if found != len(ids) {
+		return ErrNotFound
+	}
+	return nil
+}
