@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
+	"api-students/app/model"
 	"api-students/app/repository"
 	"api-students/helper"
 )
@@ -50,9 +51,8 @@ func (s *CourseService) Mine(c *fiber.Ctx) error {
 	return helper.Success(c, fiber.StatusOK, "KRS berhasil diambil", fiber.Map{
 		"courses":       courses,
 		"total_credits": total,
+		"max_credits":   MaxCreditsPerSemester,
 	})
-
-	"max_credits": MaxCreditsPerSemester
 }
 
 func (s *CourseService) Get(c *fiber.Ctx) error {
@@ -84,6 +84,12 @@ func translateCourseError(err error) error {
 	case errors.Is(err, errCreditLimit):
 		return helper.NewError(fiber.StatusConflict, "CREDIT_LIMIT_EXCEEDED",
 			"batas "+strconv.Itoa(MaxCreditsPerSemester)+" SKS terlampaui")
+	case errors.Is(err, repository.ErrVersionConflict):
+		return helper.NewError(fiber.StatusConflict, "VERSION_CONFLICT",
+			"data kelas sudah diubah pihak lain, muat ulang lalu coba lagi")
+	case errors.Is(err, repository.ErrQuotaBelowFilled):
+		return helper.NewError(fiber.StatusConflict, "QUOTA_BELOW_ENROLLED",
+			"kuota tidak boleh lebih kecil dari jumlah peserta saat ini")
 	default:
 		return helper.Internal(err)
 	}
@@ -225,9 +231,9 @@ func (s *CourseService) Swap(c *fiber.Ctx) error {
 		if err := repo.DeleteEnrollment(ctx, req.FromCourseID, current.StudentID); err != nil {
 			return err
 		}
-		if _, err := s.courses.DecrementEnrolled(ctx, req.FromCourseID); err != nil {
+		if _, err := repo.DecrementEnrolled(ctx, req.FromCourseID); err != nil {
 			return err
-		}
+		} 
 		joined, err = repo.IncrementEnrolled(ctx, req.ToCourseID)
 		if err != nil {
 			return err
@@ -237,6 +243,31 @@ func (s *CourseService) Swap(c *fiber.Ctx) error {
 	if err != nil {
 		return translateCourseError(err)
 	}
-	
+
 	return helper.Success(c, fiber.StatusOK, "berhasil pindah kelas", joined)
 }
+
+func (s *CourseService) UpdateQuota(c *fiber.Ctx) error {
+	ctx, cancel := helper.RequestContext(c)
+	defer cancel()
+
+	id, valid := helper.ParamID(c)
+	if !valid {
+		return helper.BadRequest("id harus berupa angka positif")
+	}
+
+	var req model.UpdateQuotaRequest
+	if err := c.BodyParser(&req); err != nil {
+		return helper.BadRequest("body harus berupa JSON yang valid")
+	}
+	if errs := helper.ValidateStruct(req); errs != nil {
+		return helper.Validation(errs)
+	}
+
+	updated, err := s.courses.UpdateQuota(ctx, id, req.Quota, req.Version)
+	if err != nil {
+		return translateCourseError(err)
+	}
+	return helper.Success(c, fiber.StatusOK, "kuota berhasil diubah", updated)
+}
+

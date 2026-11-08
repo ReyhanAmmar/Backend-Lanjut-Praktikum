@@ -19,6 +19,8 @@ type CourseRepository interface {
 	IncrementEnrolled(ctx context.Context, courseID int) (model.Course, error)
 	DecrementEnrolled(ctx context.Context, courseID int) (model.Course, error)
 	DeleteEnrollment(ctx context.Context, courseID, studentID int) error
+	LockCourses(ctx context.Context, ids ...int) error
+	UpdateQuota(ctx context.Context, id, quota, version int) (model.Course, error)
 }
 
 const courseColumns = `id, code, name, credits, quota, enrolled_count, version, created_at`
@@ -83,7 +85,12 @@ func (r *coursePostgresRepository) FindByStudent(ctx context.Context, studentID 
 		 ORDER BY c.code`, studentID))
 }
 
-var ErrCourseFull = errors.New("kuota kelas sudah penuh")
+var (
+	ErrCourseFull       = errors.New("kuota kelas sudah penuh")
+	ErrNotEnrolled      = errors.New("tidak terdaftar di kelas ini")
+	ErrVersionConflict  = errors.New("data sudah diubah pihak lain")
+	ErrQuotaBelowFilled = errors.New("kuota lebih kecil dari jumlah peserta")
+)
 
 func (r *coursePostgresRepository) InsertEnrollment(ctx context.Context, courseID, studentID int) error {
 	_, err := r.db.Exec(ctx,
@@ -97,12 +104,10 @@ func (r *coursePostgresRepository) InsertEnrollment(ctx context.Context, courseI
 	return nil
 }
 
-var ErrNotEnrolled = errors.New("tidak terdaftar di kelas ini")
-
 func (r *coursePostgresRepository) LockStudent(ctx context.Context, studentID int) error {
 	var id int
 	err := r.db.QueryRow(ctx,
-		"SELECT id FROM students WHERE id = $1", studentID).Scan(&id)
+		"SELECT id FROM students WHERE id = $1 FOR UPDATE", studentID).Scan(&id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
@@ -128,7 +133,7 @@ func (r *coursePostgresRepository) SumCredits(ctx context.Context, studentID int
 func (r *coursePostgresRepository) IncrementEnrolled(ctx context.Context, courseID int) (model.Course, error) {
 	c, err := scanCourse(r.db.QueryRow(ctx,
 		`UPDATE courses SET enrolled_count = enrolled_count + 1
-		 WHERE id = $1 AND enrolled_count <= quota
+		 WHERE id = $1 AND enrolled_count < quota
 		 RETURNING `+courseColumns, courseID))
 	if err == nil {
 		return c, nil
@@ -172,7 +177,7 @@ func (r *coursePostgresRepository) LockCourses(ctx context.Context, ids ...int) 
 		return fmt.Errorf("mengunci kelas: %w", err)
 	}
 	defer rows.Close()
-	
+
 	found := 0
 	for rows.Next() {
 		found++
@@ -184,4 +189,26 @@ func (r *coursePostgresRepository) LockCourses(ctx context.Context, ids ...int) 
 		return ErrNotFound
 	}
 	return nil
+}
+
+func (r *coursePostgresRepository) UpdateQuota(ctx context.Context, id, quota, version int) (model.Course, error) {
+	c, err := scanCourse(r.db.QueryRow(ctx,
+		`UPDATE courses SET quota = $1
+		 WHERE id = $2 AND version = $3 AND $1 >= enrolled_count
+		 RETURNING `+courseColumns, quota, id, version))
+	if err == nil {
+		return c, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return model.Course{}, fmt.Errorf("mengubah kuota: %w", err)
+	}
+
+	current, findErr := r.FindByID(ctx, id)
+	if findErr != nil {
+		return model.Course{}, findErr
+	}
+	if current.Version != version {
+		return model.Course{}, ErrVersionConflict
+	}
+	return model.Course{}, ErrQuotaBelowFilled
 }

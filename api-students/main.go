@@ -63,7 +63,6 @@ func main() {
 		studentRepository, tokenRepository, jwtManager, permissions,
 		time.Duration(config.GetEnvInt("JWT_REFRESH_TTL_DAYS", 7))*24*time.Hour,
 	)
-	courseService := service.NewCourseService(courseRepository)
 
 	app := config.NewApp(logger, route.Dependencies{
 		Pool:           pool,
