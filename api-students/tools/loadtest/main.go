@@ -28,11 +28,6 @@ var httpClient = &http.Client{
 	},
 }
 
-// fire menjalankan n pekerjaan secara serentak dan menghitung hasilnya.
-//
-// Setiap goroutine menunggu di depan "gerbang" start yang sama. Gerbang
-// baru dibuka setelah SELURUH goroutine siap, sehingga request benar-benar
-// berangkat hampir bersamaan — bukan bergiliran sesuai urutan dibuatnya.
 func fire(n int, job func(i int) string) map[string]int {
 	var wg sync.WaitGroup
 	start := make(chan struct{})
@@ -124,7 +119,7 @@ func generateTokens(students []model.Student, jwtManager *helper.JWTManager) ([]
 }
 
 func main() {
-	mode := flag.String("mode", "crowd", "Mode pengujian: crowd | credits | swap")
+	mode := flag.String("mode", "crowd", "Mode pengujian: crowd | credits | swap | supervisor")
 	baseURL := flag.String("url", "http://localhost:3000", "Base URL server target")
 	flag.Parse()
 
@@ -169,12 +164,22 @@ func main() {
 		runCredits(ctx, pool, *baseURL, students, tokens)
 	case "swap":
 		runSwap(ctx, pool, *baseURL, students, tokens)
+	case "supervisor":
+		adminToken, err := jwtManager.GenerateAccess(model.Student{
+			ID:   1,
+			NIM:  "admin",
+			Role: "admin",
+		})
+		if err != nil {
+			fmt.Printf("Error membuat admin token: %v\n", err)
+			return
+		}
+		runSupervisorLoadTest(ctx, pool, *baseURL, students, adminToken)
 	default:
-		fmt.Printf("Mode tidak dikenal: %s. Pilihan: crowd, credits, swap\n", *mode)
+		fmt.Printf("Mode tidak dikenal: %s. Pilihan: crowd, credits, swap, supervisor\n", *mode)
 	}
 }
 
-// Mode crowd: 60 mahasiswa berebut kelas IF399 (kuota 5)
 func runCrowd(ctx context.Context, pool *pgxpool.Pool, baseURL string, students []model.Student, tokens []string) {
 	var courseID, quota int
 	err := pool.QueryRow(ctx, "SELECT id, quota FROM courses WHERE code = 'IF399'").Scan(&courseID, &quota)
@@ -211,7 +216,6 @@ func runCrowd(ctx context.Context, pool *pgxpool.Pool, baseURL string, students 
 	printTally(tally)
 	fmt.Printf("waktu total : %v\n", elapsed)
 
-	// Verifikasi database
 	var enrolledCount, rowCount int
 	_ = pool.QueryRow(ctx, "SELECT enrolled_count FROM courses WHERE id = $1", courseID).Scan(&enrolledCount)
 	_ = pool.QueryRow(ctx, "SELECT COUNT(*) FROM enrollments WHERE course_id = $1", courseID).Scan(&rowCount)
@@ -223,7 +227,6 @@ func runCrowd(ctx context.Context, pool *pgxpool.Pool, baseURL string, students 
 	fmt.Printf("IF399 kuota=%d enrolled_count=%d baris enrollments=%d -> %s\n", quota, enrolledCount, rowCount, status)
 }
 
-// Mode credits: 10 mahasiswa, masing-masing mendaftar ke 12 kelas sekaligus (batas 24 SKS)
 func runCredits(ctx context.Context, pool *pgxpool.Pool, baseURL string, students []model.Student, tokens []string) {
 	rows, err := pool.Query(ctx, "SELECT id, code, credits FROM courses WHERE code != 'IF399' ORDER BY code")
 	if err != nil {
@@ -281,7 +284,6 @@ func runCredits(ctx context.Context, pool *pgxpool.Pool, baseURL string, student
 	printTally(tally)
 	fmt.Printf("waktu total : %v\n", elapsed)
 
-	// Verifikasi SKS setiap mahasiswa
 	allConsistent := true
 	for i := 0; i < numStudents; i++ {
 		var totalSKS int
@@ -305,7 +307,6 @@ func runCredits(ctx context.Context, pool *pgxpool.Pool, baseURL string, student
 	}
 }
 
-// Mode swap: 20 pasang mahasiswa pindah kelas berlawanan arah (IF101 <-> IF102)
 func runSwap(ctx context.Context, pool *pgxpool.Pool, baseURL string, students []model.Student, tokens []string) {
 	var if101ID, if102ID, if101Quota, if102Quota int
 	err := pool.QueryRow(ctx, "SELECT id, quota FROM courses WHERE code = 'IF101'").Scan(&if101ID, &if101Quota)
@@ -324,8 +325,6 @@ func runSwap(ctx context.Context, pool *pgxpool.Pool, baseURL string, students [
 		return
 	}
 
-	// Persiapkan enrollment awal untuk 20 pasang mahasiswa (40 mahasiswa):
-	// mhs001..mhs020 di IF101, mhs021..mhs040 di IF102
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		fmt.Printf("Error memulai transaksi persiapan swap: %v\n", err)
@@ -406,4 +405,45 @@ func runSwap(ctx context.Context, pool *pgxpool.Pool, baseURL string, students [
 
 	fmt.Printf("IF101 kuota=%d enrolled_count=%d baris enrollments=%d -> %s\n", if101Quota, if101Count, if101Rows, s101)
 	fmt.Printf("IF102 kuota=%d enrolled_count=%d baris enrollments=%d -> %s\n", if102Quota, if102Count, if102Rows, s102)
+}
+
+// Jalankan dengan flag: go run ./tools/loadtest -mode supervisor
+func runSupervisorLoadTest(ctx context.Context, pool *pgxpool.Pool, baseURL string, students []model.Student, adminToken string) {
+	supervisorID := 1 // Dr. Budi Santoso (kuota 3)
+	n := 30           // 30 mahasiswa serentak
+
+	fmt.Printf("%d mahasiswa serentak ditetapkan ke pembimbing ID %d (kuota 3)...\n", n, supervisorID)
+
+	start := time.Now()
+	tally := fire(n, func(i int) string {
+		reqBody, _ := json.Marshal(map[string]int{
+			"student_id": students[i].ID,
+		})
+
+		url := fmt.Sprintf("%s/api/v1/supervisors/%d/assign", baseURL, supervisorID)
+		req, _ := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(reqBody))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+adminToken)
+
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			return fmt.Sprintf("ERR %v", err)
+		}
+		return parseResponse(resp)
+	})
+	elapsed := time.Since(start)
+
+	printTally(tally)
+	fmt.Printf("waktu total : %v\n", elapsed)
+
+	var count, rows int
+	_ = pool.QueryRow(ctx, "SELECT supervised_count FROM supervisors WHERE id = $1", supervisorID).Scan(&count)
+	_ = pool.QueryRow(ctx, "SELECT COUNT(*) FROM supervisions WHERE supervisor_id = $1", supervisorID).Scan(&rows)
+
+	status := "KONSISTEN"
+	if count != 3 || rows != 3 {
+		status = "TIDAK KONSISTEN"
+	}
+	fmt.Printf("Supervisor ID %d kuota=3 supervised_count=%d baris supervisions=%d -> %s\n",
+		supervisorID, count, rows, status)
 }

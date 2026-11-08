@@ -48,6 +48,8 @@ func main() {
 	courseRepository := repository.NewCourseRepository(pool)
 	txManager := repository.NewTxManager(pool)
 	courseService := service.NewCourseService(courseRepository, txManager)
+	supervisorRepository := repository.NewSupervisorRepository(pool)
+	supervisorService := service.NewSupervisorService(supervisorRepository, txManager)
 
 	rawPermissions, err := roleRepository.LoadPermissions(context.Background())
 	if err != nil {
@@ -71,6 +73,7 @@ func main() {
 		StudentService: studentService,
 		AuthService:    authService,
 		CourseService: courseService,
+		SupervisorService: supervisorService,
 	})
 
 	port := config.GetEnv("APP_PORT", "3000")
