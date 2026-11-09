@@ -95,3 +95,83 @@ type portfolioMongoRepository struct {
 func NewPortfolioRepository(db *mongo.Database) PortfolioRepository {
 	return &portfolioMongoRepository{coll: db.Collection("student_portfolios")}
 }
+
+func (r *portfolioMongoRepository) EnsureIndexes(ctx context.Context) error {
+	_, err := r.coll.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: "student_id", Value: 1}},
+			Options: options.Index().SetUnique(true).SetName("student_portfolio_unique"),
+		},
+		{
+			Keys:    bson.D{{Key: "projects.technologies", Value: 1}},
+			Options: options.Index().SetName("projects_technologies_idx"),
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("membuat index student_portfolios: %w", err)
+	}
+	return nil
+}
+
+func (r *portfolioMongoRepository) FindByStudentID(ctx context.Context, studentID int) (model.Portfolio, error) {
+	var doc portfolioDocument
+	err := r.coll.FindOne(ctx, bson.M{"student_id": studentID}).Decode(&doc)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return model.Portfolio{}, ErrNotFound
+		}
+		return model.Portfolio{}, fmt.Errorf("mengambil portofolio: %w", err)
+	}
+	return doc.toModel(), nil
+}
+
+func (r *portfolioMongoRepository) Upsert(ctx context.Context, studentID int, req model.UpsertPortfolioRequest) (model.Portfolio, error) {
+	t := time.Now().UTC().Truncate(time.Millisecond)
+
+	projectsDoc := make([]projectDocument, 0, len(req.Projects))
+	for _, p := range req.Projects {
+		projectsDoc = append(projectsDoc, projectDocument{
+			ID:           bson.NewObjectID(),
+			Title:        p.Title,
+			Technologies: p.Technologies,
+			Link:         p.Link,
+			Year:         p.Year,
+		})
+	}
+
+	certsDoc := make([]certificateDocument, 0, len(req.Certificates))
+	for _, c := range req.Certificates {
+		certsDoc = append(certsDoc, certificateDocument{
+			Name:   c.Name,
+			Issuer: c.Issuer,
+			Date:   c.Date,
+		})
+	}
+
+	filter := bson.M{"student_id": studentID}
+	update := bson.M{
+		"$set": bson.M{
+			"headline":     req.Headline,
+			"bio":          req.Bio,
+			"projects":     projectsDoc,
+			"certificates": certsDoc,
+			"updated_at":   t,
+		},
+		"$setOnInsert": bson.M{
+			"student_id": studentID,
+			"created_at": t,
+		},
+	}
+
+	opts := options.FindOneAndUpdate().
+		SetUpsert(true).
+		SetReturnDocument(options.After)
+
+	var doc portfolioDocument
+	err := r.coll.FindOneAndUpdate(ctx, filter, update, opts).Decode(&doc)
+	if err != nil {
+		return model.Portfolio{}, fmt.Errorf("menyimpan portofolio: %w", err)
+	}
+
+	return doc.toModel(), nil
+}
