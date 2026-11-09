@@ -88,7 +88,9 @@ func Register(app *fiber.App, deps Dependencies) {
 		middleware.RequireJSON,
 		middleware.RequireAuth(deps.JWT))
 
+	studentPortfolios.Get("", deps.PortfolioService.Get)
 	studentPortfolios.Get("/", deps.PortfolioService.Get)
+	studentPortfolios.Put("", deps.PortfolioService.Upsert)
 	studentPortfolios.Put("/", deps.PortfolioService.Upsert)
 	studentPortfolios.Post("/projects", deps.PortfolioService.AddProject)
 	studentPortfolios.Delete("/projects/:projectId", deps.PortfolioService.DeleteProject)

@@ -48,7 +48,6 @@ func main() {
 		_ = mongoClient.Disconnect(ctx)
 	}()
 	mongoDB := mongoClient.Database(config.GetEnv("MONGO_DATABASE", "students"))
-	_ = mongoDB
 
 	jwtManager := helper.NewJWTManager(
 		jwtSecret,
@@ -71,8 +70,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	portfolioService := service.NewPortfolioService(portfolioRepository, studentRepository)
-
 	rawPermissions, err := roleRepository.LoadPermissions(context.Background())
 	if err != nil {
 		logger.Error("gagal memuat permission", slog.String("error", err.Error()))
@@ -82,6 +79,7 @@ func main() {
 	logger.Info("permission dimuat",
 		slog.Any("roles", permissions.KnownRoles()))
 
+	portfolioService := service.NewPortfolioService(portfolioRepository, studentRepository, permissions)
 	studentService := service.NewStudentService(studentRepository, permissions)
 	authService := service.NewAuthService(
 		studentRepository, tokenRepository, jwtManager, permissions,
@@ -89,13 +87,15 @@ func main() {
 	)
 
 	app := config.NewApp(logger, route.Dependencies{
-		Pool:           	pool,
-		JWT:            	jwtManager,
-		Permissions:    	permissions,
-		StudentService: 	studentService,
-		AuthService:    	authService,
-		CourseService: 		courseService,
-		SupervisorService: 	supervisorService,
+		Pool:              pool,
+		Mongo:             mongoClient,
+		JWT:               jwtManager,
+		Permissions:       permissions,
+		StudentService:    studentService,
+		AuthService:       authService,
+		CourseService:     courseService,
+		SupervisorService: supervisorService,
+		PortfolioService:  portfolioService,
 	})
 
 	port := config.GetEnv("APP_PORT", "3000")

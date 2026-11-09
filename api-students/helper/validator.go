@@ -95,6 +95,12 @@ func messageFor(fe validator.FieldError) string {
 			return "maksimal " + fe.Param() + " item"
 		}
 		return "nilai maksimal " + fe.Param()
+	case "gte":
+		return "nilai minimal " + fe.Param()
+	case "lte":
+		return "nilai maksimal " + fe.Param()
+	case "url":
+		return "harus berupa URL yang valid"
 	case "strongpassword":
 		if value, ok := fe.Value().(string); ok {
 			return PasswordStrength(value)

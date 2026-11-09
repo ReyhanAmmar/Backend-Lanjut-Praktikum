@@ -119,7 +119,7 @@ func generateTokens(students []model.Student, jwtManager *helper.JWTManager) ([]
 }
 
 func main() {
-	mode := flag.String("mode", "crowd", "Mode pengujian: crowd | credits | swap | supervisor")
+	mode := flag.String("mode", "crowd", "Mode pengujian: crowd | credits | swap | supervisor | portfolio")
 	baseURL := flag.String("url", "http://localhost:3000", "Base URL server target")
 	flag.Parse()
 
@@ -175,8 +175,10 @@ func main() {
 			return
 		}
 		runSupervisorLoadTest(ctx, pool, *baseURL, students, adminToken)
+	case "portfolio":
+		runPortfolioLoadTest(ctx, *baseURL, students[0], tokens[0])
 	default:
-		fmt.Printf("Mode tidak dikenal: %s. Pilihan: crowd, credits, swap, supervisor\n", *mode)
+		fmt.Printf("Mode tidak dikenal: %s. Pilihan: crowd, credits, swap, supervisor, portfolio\n", *mode)
 	}
 }
 
@@ -446,4 +448,87 @@ func runSupervisorLoadTest(ctx context.Context, pool *pgxpool.Pool, baseURL stri
 	}
 	fmt.Printf("Supervisor ID %d kuota=3 supervised_count=%d baris supervisions=%d -> %s\n",
 		supervisorID, count, rows, status)
+}
+
+// Jalankan dengan flag: go run ./tools/loadtest -mode portfolio
+func runPortfolioLoadTest(ctx context.Context, baseURL string, student model.Student, token string) {
+	fmt.Printf("Menyiapkan portofolio mahasiswa ID %d dengan 18 proyek awal...\n", student.ID)
+
+	projects := make([]map[string]any, 18)
+	for i := 0; i < 18; i++ {
+		projects[i] = map[string]any{
+			"title":        fmt.Sprintf("Project Init %d", i+1),
+			"technologies": []string{"go", "mongodb"},
+			"year":         2024,
+		}
+	}
+
+	putBody, _ := json.Marshal(map[string]any{
+		"headline": "Fullstack Software Engineer",
+		"bio":      "Testing batas maksimal 20 proyek dengan serangan serentak",
+		"projects": projects,
+	})
+
+	putReq, _ := http.NewRequest(http.MethodPut, fmt.Sprintf("%s/api/v1/students/%d/portfolio", baseURL, student.ID), bytes.NewBuffer(putBody))
+	putReq.Header.Set("Content-Type", "application/json")
+	putReq.Header.Set("Authorization", "Bearer "+token)
+
+	putResp, err := httpClient.Do(putReq)
+	if err != nil {
+		fmt.Printf("Gagal menyiapkan portofolio awal: %v\n", err)
+		return
+	}
+	defer putResp.Body.Close()
+	if putResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(putResp.Body)
+		fmt.Printf("Status PUT awal gagal (%d): %s\n", putResp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Println("Portofolio awal (18 proyek) berhasil dibuat.")
+	fmt.Println("Mengirim 10 permintaan tambah proyek serentak (ekspektasi: 2 berhasil 201, 8 ditolak 409)...")
+
+	start := time.Now()
+	tally := fire(10, func(i int) string {
+		reqBody, _ := json.Marshal(map[string]any{
+			"title":        fmt.Sprintf("Concurrent Project %d", i+1),
+			"technologies": []string{"go", "docker"},
+			"year":         2025,
+		})
+
+		url := fmt.Sprintf("%s/api/v1/students/%d/portfolio/projects", baseURL, student.ID)
+		req, _ := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(reqBody))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			return fmt.Sprintf("ERR %v", err)
+		}
+		return parseResponse(resp)
+	})
+	elapsed := time.Since(start)
+
+	printTally(tally)
+	fmt.Printf("waktu total : %v\n", elapsed)
+
+	// Verifikasi jumlah akhir proyek di portofolio
+	getReq, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/v1/students/%d/portfolio", baseURL, student.ID), nil)
+	getReq.Header.Set("Authorization", "Bearer "+token)
+	getResp, err := httpClient.Do(getReq)
+	if err == nil {
+		defer getResp.Body.Close()
+		var res struct {
+			Data struct {
+				Projects []any `json:"projects"`
+			} `json:"data"`
+		}
+		_ = json.NewDecoder(getResp.Body).Decode(&res)
+		totalProjects := len(res.Data.Projects)
+		status := "KONSISTEN"
+		if totalProjects != 20 {
+			status = "TIDAK KONSISTEN"
+		}
+		fmt.Printf("Jumlah proyek akhir di portofolio: %d (maksimal 20) -> %s\n", totalProjects, status)
+	}
 }

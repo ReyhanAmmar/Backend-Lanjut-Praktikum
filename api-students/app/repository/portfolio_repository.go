@@ -15,7 +15,8 @@ import (
 )
 
 var (
-	ErrProjectLimit   = errors.New("jumlah proyek sudah mencapai batas maksimal 20")
+	ErrInvalidID       = errors.New("format id tidak valid")
+	ErrProjectLimit    = errors.New("jumlah proyek sudah mencapai batas maksimal 20")
 	ErrProjectNotFound = errors.New("proyek tidak ditemukan")
 )
 
@@ -105,6 +106,10 @@ func (r *portfolioMongoRepository) EnsureIndexes(ctx context.Context) error {
 		{
 			Keys:    bson.D{{Key: "projects.technologies", Value: 1}},
 			Options: options.Index().SetName("projects_technologies_idx"),
+		},
+		{
+			Keys:    bson.D{{Key: "projects._id", Value: 1}},
+			Options: options.Index().SetName("projects_id_idx"),
 		},
 	})
 	if err != nil {
@@ -224,7 +229,10 @@ func (r *portfolioMongoRepository) DeleteProject(ctx context.Context, studentID 
 		return ErrInvalidID
 	}
 
-	filter := bson.M{"student_id": studentID}
+	filter := bson.M{
+		"student_id":   studentID,
+		"projects._id": oid,
+	}
 	update := bson.M{
 		"$pull": bson.M{"projects": bson.M{"_id": oid}},
 		"$set":  bson.M{"updated_at": time.Now().UTC().Truncate(time.Millisecond)},
@@ -235,9 +243,13 @@ func (r *portfolioMongoRepository) DeleteProject(ctx context.Context, studentID 
 		return fmt.Errorf("menghapus proyek: %w", err)
 	}
 	if res.MatchedCount == 0 {
-		return ErrNotFound
-	}
-	if res.ModifiedCount == 0 {
+		count, checkErr := r.coll.CountDocuments(ctx, bson.M{"student_id": studentID})
+		if checkErr != nil {
+			return fmt.Errorf("memeriksa portofolio: %w", checkErr)
+		}
+		if count == 0 {
+			return ErrNotFound
+		}
 		return ErrProjectNotFound
 	}
 
@@ -246,8 +258,9 @@ func (r *portfolioMongoRepository) DeleteProject(ctx context.Context, studentID 
 
 
 func (r *portfolioMongoRepository) GetTopTechnologies(ctx context.Context) ([]model.TechnologyStat, error) {
-	pipeline := mongo.Pipeline{{{Key: "$unwind", Value: "$projects"}},oject
-		{{Key: "$unwind", Value: "$projects.technologie"}},
+	pipeline := mongo.Pipeline{
+		{{Key: "$unwind", Value: "$projects"}},
+		{{Key: "$unwind", Value: "$projects.technologies"}},
 
 		{{Key: "$group", Value: bson.M{
 			"_id":   "$projects.technologies",
@@ -258,7 +271,7 @@ func (r *portfolioMongoRepository) GetTopTechnologies(ctx context.Context) ([]mo
 			{Key: "count", Value: -1},
 			{Key: "_id", Value: 1},
 		}}},
-		
+
 		{{Key: "$limit", Value: 10}},
 	}
 

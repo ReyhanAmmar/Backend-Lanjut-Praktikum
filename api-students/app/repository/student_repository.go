@@ -121,7 +121,7 @@ func (r *studentPostgresRepository) FindByID(
 	var s model.Student
 
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, nim, name, grade, is_active, created_at, role, owner_id
+		`SELECT id, nim, name, grade, is_active, created_at, role, COALESCE(owner_id, id)
 		 FROM students WHERE id = $1`, id,
 	).Scan(&s.ID, &s.NIM, &s.Name, &s.Grade, &s.IsActive, &s.CreatedAt, &s.Role, &s.OwnerID)
 	if err != nil {
@@ -201,7 +201,7 @@ func (r *studentPostgresRepository) Update(
 	err := r.pool.QueryRow(ctx,
 		`UPDATE students SET nim = $1, name = $2, grade = $3, is_active = $4
 		 WHERE id = $5
-		 RETURNING id, nim, name, grade, is_active, created_at, role, owner_id`,
+		 RETURNING id, nim, name, grade, is_active, created_at, role, COALESCE(owner_id, id)`,
 		s.NIM, s.Name, s.Grade, s.IsActive, s.ID,
 	).Scan(&s.ID, &s.NIM, &s.Name, &s.Grade, &s.IsActive, &s.CreatedAt, &s.Role, &s.OwnerID)
 
