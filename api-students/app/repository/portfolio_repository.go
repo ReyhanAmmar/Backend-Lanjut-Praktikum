@@ -175,3 +175,71 @@ func (r *portfolioMongoRepository) Upsert(ctx context.Context, studentID int, re
 
 	return doc.toModel(), nil
 }
+
+func (r *portfolioMongoRepository) AddProject(ctx context.Context, studentID int, p model.Project) (model.Portfolio, error) {
+	doc := projectDocument{
+		ID:           bson.NewObjectID(),
+		Title:        p.Title,
+		Technologies: p.Technologies,
+		Link:         p.Link,
+		Year:         p.Year,
+	}
+
+	limitField := "projects." + strconv.Itoa(MaxProjectsPerPortfolio-1) 
+
+	filter := bson.M{
+		"student_id": studentID,
+		limitField:   bson.M{"$exists": false},
+	}
+	update := bson.M{
+		"$push": bson.M{"projects": doc},
+		"$set":  bson.M{"updated_at": time.Now().UTC().Truncate(time.Millisecond)},
+	}
+
+	opts := options.FindOneAndUpdate().SetReturnDocument(options.After)
+	var updated portfolioDocument
+	err := r.coll.FindOneAndUpdate(ctx, filter, update, opts).Decode(&updated)
+	if err == nil {
+		return updated.toModel(), nil
+	}
+
+	if !errors.Is(err, mongo.ErrNoDocuments) {
+		return model.Portfolio{}, fmt.Errorf("menambah proyek: %w", err)
+	}
+
+	count, checkErr := r.coll.CountDocuments(ctx, bson.M{"student_id": studentID})
+	if checkErr != nil {
+		return model.Portfolio{}, fmt.Errorf("memeriksa portofolio: %w", checkErr)
+	}
+	if count == 0 {
+		return model.Portfolio{}, ErrNotFound
+	}
+
+	return model.Portfolio{}, ErrProjectLimit
+}
+
+func (r *portfolioMongoRepository) DeleteProject(ctx context.Context, studentID int, projectID string) error {
+	oid, err := bson.ObjectIDFromHex(projectID)
+	if err != nil {
+		return ErrInvalidID
+	}
+
+	filter := bson.M{"student_id": studentID}
+	update := bson.M{
+		"$pull": bson.M{"projects": bson.M{"_id": oid}},
+		"$set":  bson.M{"updated_at": time.Now().UTC().Truncate(time.Millisecond)},
+	}
+
+	res, err := r.coll.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return fmt.Errorf("menghapus proyek: %w", err)
+	}
+	if res.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	if res.ModifiedCount == 0 {
+		return ErrProjectNotFound
+	}
+
+	return nil
+}
