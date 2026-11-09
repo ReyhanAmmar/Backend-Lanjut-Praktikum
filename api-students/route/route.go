@@ -22,6 +22,7 @@ type Dependencies struct {
 	AuthService        *service.AuthService
 	CourseService      *service.CourseService
 	SupervisorService  *service.SupervisorService
+	PortfolioService   *service.PortfolioService 
 }
 
 func Register(app *fiber.App, deps Dependencies) {
@@ -82,6 +83,17 @@ func Register(app *fiber.App, deps Dependencies) {
 		middleware.RequireAuth(deps.JWT))
 		
 	supervisions.Post("/switch", middleware.RequirePermission(perms, "supervision:manage"), deps.SupervisorService.Switch)
+
+	studentPortfolios := api.Group("/students/:id/portfolio",
+		middleware.RequireJSON,
+		middleware.RequireAuth(deps.JWT))
+
+	studentPortfolios.Get("/", deps.PortfolioService.Get)
+	studentPortfolios.Put("/", deps.PortfolioService.Upsert)
+	studentPortfolios.Post("/projects", deps.PortfolioService.AddProject)
+	studentPortfolios.Delete("/projects/:projectId", deps.PortfolioService.DeleteProject)
+
+	api.Get("/portfolios/stats/technologies", deps.PortfolioService.TopTechnologies)
 }
 
 func healthCheck(pool *pgxpool.Pool, mongoClient *mongo.Client) fiber.Handler {

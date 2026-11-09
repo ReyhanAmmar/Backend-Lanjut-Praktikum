@@ -80,12 +80,20 @@ func messageFor(fe validator.FieldError) string {
 	case "studentname":
 		return "nama tidak boleh hanya berisi spasi"
 	case "min":
-		return "minimal " + fe.Param() + " karakter"
-	case "max":
-		return "maksimal " + fe.Param() + " karakter"
-	case "gte":
+		switch fe.Kind() {
+		case reflect.String:
+			return "minimal " + fe.Param() + " karakter"
+		case reflect.Slice, reflect.Array, reflect.Map:
+			return "minimal " + fe.Param() + " item"
+		}
 		return "nilai minimal " + fe.Param()
-	case "lte":
+	case "max":
+		switch fe.Kind() {
+		case reflect.String:
+			return "maksimal " + fe.Param() + " karakter"
+		case reflect.Slice, reflect.Array, reflect.Map:
+			return "maksimal " + fe.Param() + " item"
+		}
 		return "nilai maksimal " + fe.Param()
 	case "strongpassword":
 		if value, ok := fe.Value().(string); ok {

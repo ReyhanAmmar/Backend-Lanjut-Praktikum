@@ -64,6 +64,14 @@ func main() {
 	courseService := service.NewCourseService(courseRepository, txManager)
 	supervisorRepository := repository.NewSupervisorRepository(pool)
 	supervisorService := service.NewSupervisorService(supervisorRepository, txManager)
+	portfolioRepository := repository.NewPortfolioRepository(mongoDB)
+
+	if err := portfolioRepository.EnsureIndexes(context.Background()); err != nil {
+		logger.Error("gagal membuat index student_portfolios", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	portfolioService := service.NewPortfolioService(portfolioRepository, studentRepository)
 
 	rawPermissions, err := roleRepository.LoadPermissions(context.Background())
 	if err != nil {
@@ -81,13 +89,13 @@ func main() {
 	)
 
 	app := config.NewApp(logger, route.Dependencies{
-		Pool:           pool,
-		JWT:            jwtManager,
-		Permissions:    permissions,
-		StudentService: studentService,
-		AuthService:    authService,
-		CourseService: courseService,
-		SupervisorService: supervisorService,
+		Pool:           	pool,
+		JWT:            	jwtManager,
+		Permissions:    	permissions,
+		StudentService: 	studentService,
+		AuthService:    	authService,
+		CourseService: 		courseService,
+		SupervisorService: 	supervisorService,
 	})
 
 	port := config.GetEnv("APP_PORT", "3000")
@@ -114,6 +122,4 @@ func main() {
 			slog.String("error", err.Error()))
 	}
 	logger.Info("server berhenti dengan rapi")
-
-
 }
