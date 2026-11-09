@@ -243,3 +243,46 @@ func (r *portfolioMongoRepository) DeleteProject(ctx context.Context, studentID 
 
 	return nil
 }
+
+
+func (r *portfolioMongoRepository) GetTopTechnologies(ctx context.Context) ([]model.TechnologyStat, error) {
+	pipeline := mongo.Pipeline{{{Key: "$unwind", Value: "$projects"}},oject
+		{{Key: "$unwind", Value: "$projects.technologie"}},
+
+		{{Key: "$group", Value: bson.M{
+			"_id":   "$projects.technologies",
+			"count": bson.M{"$sum": 1},
+		}}},
+
+		{{Key: "$sort", Value: bson.D{
+			{Key: "count", Value: -1},
+			{Key: "_id", Value: 1},
+		}}},
+		
+		{{Key: "$limit", Value: 10}},
+	}
+
+	cursor, err := r.coll.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, fmt.Errorf("meringkas teknologi: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var raw []struct {
+		Technology string `bson:"_id"`
+		Count      int    `bson:"count"`
+	}
+	if err := cursor.All(ctx, &raw); err != nil {
+		return nil, fmt.Errorf("membaca statistik teknologi: %w", err)
+	}
+
+	result := make([]model.TechnologyStat, 0, len(raw))
+	for _, item := range raw {
+		result = append(result, model.TechnologyStat{
+			Technology: item.Technology,
+			Count:      item.Count,
+		})
+	}
+
+	return result, nil
+}
