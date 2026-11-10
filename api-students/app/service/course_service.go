@@ -13,11 +13,16 @@ import (
 
 type CourseService struct {
 	courses repository.CourseRepository
-	tx *repository.TxManager
+	outbox  repository.OutboxRepository
+	tx      *repository.TxManager
 }
 
-func NewCourseService(courses repository.CourseRepository, tx *repository.TxManager) *CourseService {
-	return &CourseService{courses: courses, tx: tx}
+func NewCourseService(
+	courses repository.CourseRepository,
+	outbox repository.OutboxRepository,
+	tx *repository.TxManager,
+) *CourseService {
+	return &CourseService{courses: courses, outbox: outbox, tx: tx}
 }
 
 func (s *CourseService) List(c *fiber.Ctx) error {
@@ -134,7 +139,16 @@ func (s *CourseService) Enroll(c *fiber.Ctx) error {
 		if err != nil {
 			return err
 		}
-		
+
+		if err := s.outbox.Insert(ctx, model.EventEnrollmentCreated, model.EnrollmentEvent{
+			StudentID:  current.StudentID,
+			CourseID:   enrolled.ID,
+			CourseCode: enrolled.Code,
+			CourseName: enrolled.Name,
+		}); err != nil {
+			return err
+		}
+
 		return repo.InsertEnrollment(ctx, courseID, current.StudentID)
 	})
 	if err != nil {
@@ -168,8 +182,16 @@ func (s *CourseService) Drop(c *fiber.Ctx) error {
 		if err := repo.DeleteEnrollment(ctx, courseID, current.StudentID); err != nil {
 			return err
 		}
-		_, err := repo.DecrementEnrolled(ctx, courseID)
-		return err
+		course, err := repo.DecrementEnrolled(ctx, courseID)
+		if err != nil {
+			return err
+		}
+		return s.outbox.WithTx(tx).Insert(ctx, model.EventEnrollmentCreated, model.EnrollmentEvent{
+			StudentID:  current.StudentID,
+			CourseID:   course.ID,
+			CourseCode: course.Code,
+			CourseName: course.Name,
+		})
 	})
 	if err != nil {
 		return translateCourseError(err)
@@ -238,7 +260,17 @@ func (s *CourseService) Swap(c *fiber.Ctx) error {
 		if err != nil {
 			return err
 		}
-		return repo.InsertEnrollment(ctx, req.ToCourseID, current.StudentID)
+		if err := repo.InsertEnrollment(ctx, req.ToCourseID, current.StudentID); err != nil {
+			return err
+		}
+		return s.outbox.WithTx(tx).Insert(ctx, model.EventEnrollmentSwapped, model.EnrollmentEvent{
+			StudentID:      current.StudentID,
+			CourseID:       to.ID,
+			CourseCode:     to.Code,
+			CourseName:     to.Name,
+			FromCourseCode: from.Code,
+			FromCourseName: from.Name,
+		})
 	})
 	if err != nil {
 		return translateCourseError(err)
