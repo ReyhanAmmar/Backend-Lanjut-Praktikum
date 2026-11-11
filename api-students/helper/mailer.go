@@ -35,7 +35,7 @@ func NewLogMailer(path string, delay time.Duration, failEvery int) (Mailer, erro
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, fmt.Errorf("menyiapkan folder log email: %w", err)
 	}
-	// Wajib mengembalikan pointer agar sync.Mutex dan atomic tidak ter-copy
+
 	return &LogMailer{path: path, delay: delay, failEvery: int64(failEvery)}, nil
 }
 

@@ -26,7 +26,7 @@ func RedisOpt() asynq.RedisClientOpt {
 func NewWorkerServer(logger *slog.Logger) *asynq.Server {
 	return asynq.NewServer(RedisOpt(), asynq.Config{
 		Concurrency: GetEnvInt("WORKER_CONCURRENCY", 5),
-		Queues:      map[string]int{model.QueueNotifications: 1},
+		Queues: map[string]int{model.QueueNotifications: 1},
 		RetryDelayFunc: func(n int, err error, t *asynq.Task) time.Duration {
 			return time.Duration((n+1)*2) * time.Second
 		},
@@ -55,6 +55,6 @@ func (a asynqLogger) Info(args ...any)  { a.l.Info(fmt.Sprint(args...)) }
 func (a asynqLogger) Warn(args ...any)  { a.l.Warn(fmt.Sprint(args...)) }
 func (a asynqLogger) Error(args ...any) { a.l.Error(fmt.Sprint(args...)) }
 func (a asynqLogger) Fatal(args ...any) {
-	a.l.Error(fmt.Sprint(args...))
-	os.Exit(1)
+    a.l.Error(fmt.Sprint(args...))
+    os.Exit(1)
 }

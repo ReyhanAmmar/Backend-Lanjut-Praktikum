@@ -140,7 +140,7 @@ func (s *CourseService) Enroll(c *fiber.Ctx) error {
 			return err
 		}
 
-		if err := s.outbox.Insert(ctx, model.EventEnrollmentCreated, model.EnrollmentEvent{
+		if err := s.outbox.WithTx(tx).Insert(ctx, model.EventEnrollmentCreated, model.EnrollmentEvent{
 			StudentID:  current.StudentID,
 			CourseID:   enrolled.ID,
 			CourseCode: enrolled.Code,
@@ -186,7 +186,7 @@ func (s *CourseService) Drop(c *fiber.Ctx) error {
 		if err != nil {
 			return err
 		}
-		return s.outbox.WithTx(tx).Insert(ctx, model.EventEnrollmentCreated, model.EnrollmentEvent{
+		return s.outbox.WithTx(tx).Insert(ctx, model.EventEnrollmentDropped, model.EnrollmentEvent{
 			StudentID:  current.StudentID,
 			CourseID:   course.ID,
 			CourseCode: course.Code,

@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -78,11 +80,11 @@ func (r *OutboxRelay) RelayOnce(ctx context.Context) (int, error) {
 
 		ids := make([]int64, 0, len(events))
 		for _, e := range events {
-			if err := r.publish(ctx, e); err != nil {
-				enqueueErr = err
-				break
-			}
-			ids = append(ids, e.ID)
+		if err := r.publish(ctx, e); err != nil {
+			enqueueErr = err
+			break
+		}
+		ids = append(ids, e.ID)
 		}
 
 		if err := repo.MarkPublished(ctx, ids); err != nil {
@@ -99,16 +101,20 @@ func (r *OutboxRelay) RelayOnce(ctx context.Context) (int, error) {
 
 func (r *OutboxRelay) publish(ctx context.Context, e model.OutboxEvent) error {
 	job := model.NotificationJob{
-		OutboxID: e.ID, EventType: e.EventType, Payload: e.Payload,
+    OutboxID: e.ID, EventType: e.EventType, Payload: e.Payload,
 	}
-	task := asynq.NewTask(model.TaskSendNotification, job,
+	payload, err := json.Marshal(job)
+	if err != nil {
+		return fmt.Errorf("menyusun payload task: %w", err)
+	}
+	task := asynq.NewTask(model.TaskSendNotification, payload,
 		asynq.TaskID(fmt.Sprintf("outbox-%d", e.ID)),
 		asynq.Queue(model.QueueNotifications),
 		asynq.MaxRetry(5),
 		asynq.Timeout(30*time.Second),
 		asynq.Retention(24*time.Hour),
 	)
-	_, err := r.queue.EnqueueContext(ctx, task)
+	_, err = r.queue.EnqueueContext(ctx, task)
 	if errors.Is(err, asynq.ErrTaskIDConflict) {
 		return nil
 	}
