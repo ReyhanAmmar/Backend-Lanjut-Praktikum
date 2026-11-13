@@ -28,3 +28,26 @@ func BuildMessage(eventType string, e model.EnrollmentEvent, student model.Stude
 	}
 	return model.Message{To: student.Email, Subject: subject, Body: body}, nil
 }
+
+func BuildQuotaChangedMessage(
+    event model.CourseQuotaChangedEvent,
+    student model.Student,
+) model.Message {
+
+    course := event.CourseCode + " " + event.CourseName
+
+    return model.Message{
+        To: student.Email,
+        Subject: fmt.Sprintf(
+            "KRS: kuota %s berubah menjadi %d",
+            course,
+            event.Quota,
+        ),
+        Body: fmt.Sprintf(
+            "Halo %s, kuota kelas %s berubah menjadi %d.",
+            student.Name,
+            course,
+            event.Quota,
+        ),
+    }
+}

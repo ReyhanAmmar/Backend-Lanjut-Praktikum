@@ -43,29 +43,49 @@ func (w *NotificationWorker) HandleSend(ctx context.Context, t *asynq.Task) erro
 	if err := json.Unmarshal(t.Payload(), &job); err != nil {
 		return fmt.Errorf("%w: payload task rusak: %v", asynq.SkipRetry, err)
 	}
-	var event model.EnrollmentEvent
-	if err := json.Unmarshal(job.Payload, &event); err != nil {
-		return fmt.Errorf("%w: payload event %d rusak: %v", asynq.SkipRetry, job.OutboxID, err)
-	}
 
-	student, err := w.students.FindByID(ctx, event.StudentID)
-	if errors.Is(err, repository.ErrNotFound) {
-		return fmt.Errorf("%w: mahasiswa %d tidak ditemukan", asynq.SkipRetry, event.StudentID)
-	}
-	if err != nil {
-		return err
-	}
+	var targetStudentID int
+	var msg model.Message
 
-	msg, err := BuildMessage(job.EventType, event, student)
-	if err != nil {
-		return fmt.Errorf("%w: %v", asynq.SkipRetry, err)
+	if job.EventType == model.EventCourseQuotaChanged {
+		var event model.CourseQuotaChangedEvent
+		if err := json.Unmarshal(job.Payload, &event); err != nil {
+			return fmt.Errorf("%w: payload quota event %d rusak: %v", asynq.SkipRetry, job.OutboxID, err)
+		}
+		targetStudentID = job.StudentID
+		student, err := w.students.FindByID(ctx, targetStudentID)
+		if errors.Is(err, repository.ErrNotFound) {
+			return fmt.Errorf("%w: mahasiswa %d tidak ditemukan", asynq.SkipRetry, targetStudentID)
+		}
+		if err != nil {
+			return err
+		}
+		msg = BuildQuotaChangedMessage(event, student)
+	} else {
+		var event model.EnrollmentEvent
+		if err := json.Unmarshal(job.Payload, &event); err != nil {
+			return fmt.Errorf("%w: payload event %d rusak: %v", asynq.SkipRetry, job.OutboxID, err)
+		}
+		targetStudentID = event.StudentID
+		student, err := w.students.FindByID(ctx, targetStudentID)
+		if errors.Is(err, repository.ErrNotFound) {
+			return fmt.Errorf("%w: mahasiswa %d tidak ditemukan", asynq.SkipRetry, targetStudentID)
+		}
+		if err != nil {
+			return err
+		}
+		var errBuild error
+		msg, errBuild = BuildMessage(job.EventType, event, student)
+		if errBuild != nil {
+			return fmt.Errorf("%w: %v", asynq.SkipRetry, errBuild)
+		}
 	}
 
 	alreadySent := false
-	err = w.tx.WithTxOnce(ctx, func(tx repository.DBTX) error {
+	err := w.tx.WithTxOnce(ctx, func(tx repository.DBTX) error {
 		claimed, err := w.notifications.Claim(ctx, model.Notification{
 			OutboxID:  job.OutboxID,
-			StudentID: student.ID,
+			StudentID: targetStudentID,
 			Channel:   "email",
 			Subject:   msg.Subject,
 			Body:      msg.Body,
@@ -91,6 +111,7 @@ func (w *NotificationWorker) HandleSend(ctx context.Context, t *asynq.Task) erro
 	w.logger.Info("notification_processed",
 		slog.Int64("outbox_id", job.OutboxID),
 		slog.String("event", job.EventType),
+		slog.Int("student_id", targetStudentID),
 		slog.Int("retry", retry),
 		slog.Bool("already_sent", alreadySent))
 	return nil

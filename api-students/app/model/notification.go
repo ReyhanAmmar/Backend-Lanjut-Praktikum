@@ -9,6 +9,7 @@ const (
 	EventEnrollmentCreated = "enrollment.created"
 	EventEnrollmentDropped = "enrollment.dropped"
 	EventEnrollmentSwapped = "enrollment.swapped"
+	EventCourseQuotaChanged = "course.quota_changed"
 )
 
 const (
@@ -33,9 +34,10 @@ type OutboxEvent struct {
 }
 
 type NotificationJob struct {
-	OutboxID  int64           `json:"outbox_id"`
-	EventType string          `json:"event_type"`
-	Payload   json.RawMessage `json:"payload"`
+    OutboxID  int64           `json:"outbox_id"`
+    EventType string          `json:"event_type"`
+    Payload   json.RawMessage `json:"payload"`
+    StudentID int             `json:"student_id,omitempty"`
 }
 
 type Message struct {
@@ -73,4 +75,12 @@ type QueueInfo struct {
 	Completed int    `json:"completed"`
 	Processed int    `json:"processed_today"`
 	Failed    int    `json:"failed_today"`
+}
+
+type CourseQuotaChangedEvent struct {
+    CourseID   int    `json:"course_id"`
+    CourseCode string `json:"course_code"`
+    CourseName string `json:"course_name"`
+    Quota      int    `json:"quota"`
+    StudentIDs []int  `json:"student_ids"`
 }

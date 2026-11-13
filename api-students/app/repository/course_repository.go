@@ -21,6 +21,7 @@ type CourseRepository interface {
 	DeleteEnrollment(ctx context.Context, courseID, studentID int) error
 	LockCourses(ctx context.Context, ids ...int) error
 	UpdateQuota(ctx context.Context, id, quota, version int) (model.Course, error)
+	ListStudentIDsByCourse(ctx context.Context, courseID int,) ([]int, error)
 }
 
 const courseColumns = `id, code, name, credits, quota, enrolled_count, version, created_at`
@@ -211,4 +212,41 @@ func (r *coursePostgresRepository) UpdateQuota(ctx context.Context, id, quota, v
 		return model.Course{}, ErrVersionConflict
 	}
 	return model.Course{}, ErrQuotaBelowFilled
+}
+
+func (r *coursePostgresRepository) ListStudentIDsByCourse(
+    ctx context.Context,
+    courseID int,
+) ([]int, error) {
+    rows, err := r.db.Query(ctx, `
+        SELECT student_id
+        FROM enrollments
+        WHERE course_id = $1
+        ORDER BY student_id
+    `, courseID)
+
+    if err != nil {
+        return nil, fmt.Errorf(
+            "mengambil peserta kelas: %w", err,
+        )
+    }
+    defer rows.Close()
+
+    ids := []int{}
+
+    for rows.Next() {
+        var id int
+
+        if err := rows.Scan(&id); err != nil {
+            return nil, err
+        }
+
+        ids = append(ids, id)
+    }
+
+    if err := rows.Err(); err != nil {
+        return nil, err
+    }
+
+    return ids, nil
 }

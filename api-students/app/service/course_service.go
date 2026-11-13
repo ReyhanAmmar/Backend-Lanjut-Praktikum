@@ -280,26 +280,69 @@ func (s *CourseService) Swap(c *fiber.Ctx) error {
 }
 
 func (s *CourseService) UpdateQuota(c *fiber.Ctx) error {
-	ctx, cancel := helper.RequestContext(c)
-	defer cancel()
+    ctx, cancel := helper.RequestContext(c)
+    defer cancel()
 
-	id, valid := helper.ParamID(c)
-	if !valid {
-		return helper.BadRequest("id harus berupa angka positif")
-	}
+    id, valid := helper.ParamID(c)
+    if !valid {
+        return helper.BadRequest("id harus berupa angka positif")
+    }
 
-	var req model.UpdateQuotaRequest
-	if err := c.BodyParser(&req); err != nil {
-		return helper.BadRequest("body harus berupa JSON yang valid")
-	}
-	if errs := helper.ValidateStruct(req); errs != nil {
-		return helper.Validation(errs)
-	}
+    var req model.UpdateQuotaRequest
+    if err := c.BodyParser(&req); err != nil {
+        return helper.BadRequest("body harus berupa JSON yang valid")
+    }
 
-	updated, err := s.courses.UpdateQuota(ctx, id, req.Quota, req.Version)
-	if err != nil {
-		return translateCourseError(err)
-	}
-	return helper.Success(c, fiber.StatusOK, "kuota berhasil diubah", updated)
+    if errs := helper.ValidateStruct(req); errs != nil {
+        return helper.Validation(errs)
+    }
+
+    var updated model.Course
+
+    err := s.tx.WithTx(ctx, func(tx repository.DBTX) error {
+        repo := s.courses.WithTx(tx)
+
+        course, err := repo.UpdateQuota(
+            ctx, id, req.Quota, req.Version,
+        )
+        if err != nil {
+            return err
+        }
+
+        students, err := repo.ListStudentIDsByCourse(
+            ctx, course.ID,
+        )
+        if err != nil {
+            return err
+        }
+
+        err = s.outbox.WithTx(tx).Insert(
+            ctx,
+            model.EventCourseQuotaChanged,
+            model.CourseQuotaChangedEvent{
+                CourseID:   course.ID,
+                CourseCode: course.Code,
+                CourseName: course.Name,
+                Quota:      course.Quota,
+                StudentIDs: students,
+            },
+        )
+        if err != nil {
+            return err
+        }
+
+        updated = course
+        return nil
+    })
+
+    if err != nil {
+        return translateCourseError(err)
+    }
+
+    return helper.Success(
+        c,
+        fiber.StatusOK,
+        "kuota berhasil diubah",
+        updated,
+    )
 }
-

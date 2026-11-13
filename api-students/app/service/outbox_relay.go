@@ -99,27 +99,90 @@ func (r *OutboxRelay) RelayOnce(ctx context.Context) (int, error) {
 	return published, enqueueErr
 }
 
-func (r *OutboxRelay) publish(ctx context.Context, e model.OutboxEvent) error {
-	job := model.NotificationJob{
-    OutboxID: e.ID, EventType: e.EventType, Payload: e.Payload,
-	}
-	payload, err := json.Marshal(job)
-	if err != nil {
-		return fmt.Errorf("menyusun payload task: %w", err)
-	}
-	task := asynq.NewTask(model.TaskSendNotification, payload,
-		asynq.TaskID(fmt.Sprintf("outbox-%d", e.ID)),
-		asynq.Queue(model.QueueNotifications),
-		asynq.MaxRetry(5),
-		asynq.Timeout(30*time.Second),
-		asynq.Retention(24*time.Hour),
-	)
-	_, err = r.queue.EnqueueContext(ctx, task)
-	if errors.Is(err, asynq.ErrTaskIDConflict) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("enqueue outbox %d: %w", e.ID, err)
-	}
-	return nil
+func (r *OutboxRelay) publish(ctx context.Context, e model.OutboxEvent,) error {
+
+    if e.EventType == model.EventCourseQuotaChanged {
+        var event model.CourseQuotaChangedEvent
+
+        if err := json.Unmarshal(e.Payload, &event); err != nil {
+            return fmt.Errorf("membaca quota event: %w", err)
+        }
+
+        for _, studentID := range event.StudentIDs {
+            job := model.NotificationJob{
+                OutboxID:  e.ID,
+                EventType: e.EventType,
+                Payload:   e.Payload,
+                StudentID: studentID,
+            }
+
+            payload, err := json.Marshal(job)
+            if err != nil {
+                return err
+            }
+
+            task := asynq.NewTask(
+                model.TaskSendNotification,
+                payload,
+                asynq.TaskID(fmt.Sprintf(
+                    "outbox-%d-student-%d",
+                    e.ID,
+                    studentID,
+                )),
+                asynq.Queue(model.QueueNotifications),
+                asynq.MaxRetry(5),
+                asynq.Timeout(30*time.Second),
+                asynq.Retention(24*time.Hour),
+            )
+
+            _, err = r.queue.EnqueueContext(ctx, task)
+
+            if errors.Is(err, asynq.ErrTaskIDConflict) {
+                continue
+            }
+
+            if err != nil {
+                return fmt.Errorf(
+                    "enqueue notifikasi mahasiswa %d: %w",
+                    studentID,
+                    err,
+                )
+            }
+        }
+
+        return nil
+    }
+
+    job := model.NotificationJob{
+        OutboxID:  e.ID,
+        EventType: e.EventType,
+        Payload:   e.Payload,
+    }
+
+    payload, err := json.Marshal(job)
+    if err != nil {
+        return err
+    }
+
+    task := asynq.NewTask(
+        model.TaskSendNotification,
+        payload,
+        asynq.TaskID(fmt.Sprintf("outbox-%d", e.ID)),
+        asynq.Queue(model.QueueNotifications),
+        asynq.MaxRetry(5),
+        asynq.Timeout(30*time.Second),
+        asynq.Retention(24*time.Hour),
+    )
+
+    _, err = r.queue.EnqueueContext(ctx, task)
+
+    if errors.Is(err, asynq.ErrTaskIDConflict) {
+        return nil
+    }
+
+    if err != nil {
+        return fmt.Errorf("enqueue outbox %d: %w", e.ID, err)
+    }
+
+    return nil
 }
